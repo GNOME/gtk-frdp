@@ -1,6 +1,6 @@
 /* gtk-frdp.h
  *
- * Copyright (C) 2018 Felipe Borges
+ * Copyright (C) 2018 Felipe Borges <felipeborges@gnome.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
