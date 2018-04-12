@@ -28,6 +28,7 @@ configure_file(
 )
 
 gtk_frdp_deps = [
+  dependency('freerdp', version: '>= 1.1'),
   dependency('gio-2.0', version: '>= 2.50'),
 ]
 
