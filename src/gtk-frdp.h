@@ -19,6 +19,7 @@
 #ifndef GTK_FRDP_H
 #define GTK_FRDP_H
 
+#include <gtk/gtk.h>
 #include <glib.h>
 
 G_BEGIN_DECLS

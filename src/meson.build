@@ -30,12 +30,20 @@ configure_file(
 gtk_frdp_deps = [
   dependency('freerdp', version: '>= 1.1'),
   dependency('gio-2.0', version: '>= 2.50'),
+  dependency('gtk+-3.0'),
 ]
 
 gtk_frdp_lib = shared_library('gtk-frdp-' + api_version,
   gtk_frdp_sources,
   dependencies: gtk_frdp_deps,
   install: true,
+)
+
+gtk_frdp_dep = declare_dependency(
+  sources: gtk_frdp_headers,
+  dependencies: gtk_frdp_deps,
+  link_with: gtk_frdp_lib,
+  include_directories: include_directories('.'),
 )
 
 install_headers(gtk_frdp_headers, subdir: 'gtk-frdp')
