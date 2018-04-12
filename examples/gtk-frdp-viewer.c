@@ -22,6 +22,7 @@ static void
 on_activate (GtkApplication *app)
 {
   GtkWindow *window;
+  GtkWidget *display;
 
   g_assert (GTK_IS_APPLICATION (app));
 
@@ -33,6 +34,11 @@ on_activate (GtkApplication *app)
                            "default-width", 600,
                            "default-height", 300,
                            NULL);
+
+  display = frdp_display_new ();
+
+  gtk_container_add (GTK_CONTAINER (window), display);
+  gtk_widget_show (display);
 
   gtk_window_present (window);
 }
