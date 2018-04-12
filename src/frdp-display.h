@@ -26,9 +26,15 @@ G_BEGIN_DECLS
 
 G_DECLARE_FINAL_TYPE (FrdpDisplay, frdp_display, FRDP_DISPLAY, DISPLAY, GtkDrawingArea)
 
+typedef struct _FrdpDisplayPrivate FrdpDisplayPrivate;
+
 struct _FrdpDisplay
 {
   GtkDrawingArea parent;
+
+  FrdpDisplayPrivate *priv;
+
+  /* Do not add fields to this struct */
 };
 
 GtkWidget *frdp_display_new (void);

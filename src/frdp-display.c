@@ -18,7 +18,12 @@
 
 #include "frdp-display.h"
 
-G_DEFINE_TYPE (FrdpDisplay, frdp_display, GTK_TYPE_DRAWING_AREA)
+struct _FrdpDisplayPrivate
+{
+  gpointer *dummy;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE (FrdpDisplay, frdp_display, GTK_TYPE_DRAWING_AREA)
 
 GtkWidget *frdp_display_new (void)
 {
@@ -33,4 +38,5 @@ frdp_display_class_init (FrdpDisplayClass *klass)
 static void
 frdp_display_init (FrdpDisplay *self)
 {
+  self->priv = frdp_display_get_instance_private (self);
 }
