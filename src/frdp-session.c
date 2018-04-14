@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <errno.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
 #include <gio/gio.h>
@@ -23,11 +24,16 @@
 
 #include "frdp-session.h"
 
+#define SELECT_TIMEOUT 50
+
 struct _FrdpSessionPrivate
 {
   freerdp      *freerdp_session;
 
   GtkWidget    *display;
+  cairo_surface_t *surface;
+
+  guint update_id;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -48,6 +54,27 @@ struct frdp_context
   FrdpSession *self;
 };
 typedef struct frdp_context frdpContext;
+
+static gboolean
+frdp_session_draw (GtkWidget *widget,
+                   cairo_t   *cr,
+                   gpointer   user_data)
+{
+  FrdpSession *self = (FrdpSession*) user_data;
+  GtkWidget *parent;
+  gint window_width, window_height;
+
+  parent = gtk_widget_get_parent (widget);
+  window_width = gtk_widget_get_allocated_width (parent);
+  window_height = gtk_widget_get_allocated_height (parent);
+
+  gtk_widget_set_size_request (widget, window_width, window_height);
+
+  cairo_set_source_surface (cr, self->priv->surface, 0, 0);
+  cairo_paint (cr);
+
+  return TRUE;
+}
 
 static void
 frdp_session_set_hostname (FrdpSession *self,
@@ -176,12 +203,91 @@ frdp_end_paint (rdpContext *context)
 static gboolean
 frdp_post_connect (freerdp *freerdp_session)
 {
+  FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
+  rdpGdi *gdi;
+  gint stride;
+
   gdi_init (freerdp_session, CLRBUF_24BPP, NULL);
+  gdi = freerdp_session->context->gdi;
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
   freerdp_session->update->EndPaint = frdp_end_paint;
 
-  /* cairo create surface image for data */
+  stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, gdi->width);
+  self->priv->surface =
+      cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
+                                           CAIRO_FORMAT_RGB24,
+                                           gdi->width,
+                                           gdi->height,
+                                           stride);
+
+  gtk_widget_queue_draw_area (self->priv->display,
+                              0,
+                              0,
+                              gdi->width,
+                              gdi->height);
+
+  return TRUE;
+}
+
+static gboolean
+update (gpointer user_data)
+{
+  FrdpSessionPrivate *priv;
+  struct timeval timeout;
+  FrdpSession *self = (FrdpSession*) user_data;
+  fd_set rfds_set, wfds_set;
+  void *rfds[32], *wfds[32];
+  gint rcount = 0, wcount = 0;
+  gint fds, max_fds = 0;
+  gint result;
+  gint idx;
+
+  memset (rfds, 0, sizeof (rfds));
+  memset (wfds, 0, sizeof (wfds));
+
+  priv = self->priv;
+
+  if (!freerdp_get_fds (priv->freerdp_session, rfds, &rcount, wfds, &wcount)) {
+      g_warning ("Failed to get FreeRDP file descriptor");
+      return FALSE;
+  }
+
+  FD_ZERO (&rfds_set);
+  FD_ZERO (&wfds_set);
+
+  for (idx = 0; idx < rcount; idx++) {
+    fds = (int)(long) (rfds[idx]);
+
+    if (fds > max_fds)
+      max_fds = fds;
+
+    FD_SET (fds, &rfds_set);
+  }
+
+  if (max_fds == 0)
+    return FALSE;
+
+  timeout.tv_sec = 0;
+  timeout.tv_usec = SELECT_TIMEOUT;
+
+  result = select (max_fds + 1, &rfds_set, NULL, NULL, &timeout);
+  if (result == -1) {
+    if (!((errno == EAGAIN) || (errno == EWOULDBLOCK) ||
+          (errno == EINPROGRESS) || (errno == EINTR))) {
+      g_warning ("update: select failed");
+      return FALSE;
+    }
+  }
+
+  if (!freerdp_check_fds (priv->freerdp_session)) {
+      g_warning ("Failed to check FreeRDP file descriptor");
+      return FALSE;
+  }
+
+  if (freerdp_shall_disconnect (priv->freerdp_session)) {
+      return FALSE;
+  }
 
   return TRUE;
 }
@@ -196,6 +302,11 @@ frdp_session_connect_thread (GTask        *task,
   gboolean result;
 
   result = freerdp_connect (self->priv->freerdp_session);
+
+  g_signal_connect (self->priv->display, "draw",
+                    G_CALLBACK (frdp_session_draw), self);
+
+  self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
 
   g_task_return_boolean (task, result);
 }
@@ -266,7 +377,13 @@ frdp_session_set_property (GObject      *object,
 static void
 frdp_session_finalize (GObject *object)
 {
+  FrdpSession *self = (FrdpSession*) object;
   /* TODO: free the world! */
+
+  if (self->priv->update_id > 0) {
+    g_source_remove (self->priv->update_id);
+    self->priv->update_id = 0;
+  }
 
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
 }
@@ -345,6 +462,8 @@ frdp_session_init (FrdpSession *self)
 FrdpSession*
 frdp_session_new (FrdpDisplay *display)
 {
+  gtk_widget_show (GTK_WIDGET (display));
+
   return g_object_new (FRDP_TYPE_SESSION,
                        "display", display,
                        NULL);
