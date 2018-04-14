@@ -23,6 +23,7 @@
 G_BEGIN_DECLS
 
 #define FRDP_TYPE_DISPLAY (frdp_display_get_type())
+#define FRDP_DISPLAY(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), FRDP_TYPE_DISPLAY, FrdpDisplay))
 
 G_DECLARE_FINAL_TYPE (FrdpDisplay, frdp_display, FRDP_DISPLAY, DISPLAY, GtkDrawingArea)
 
@@ -37,6 +38,10 @@ struct _FrdpDisplay
   /* Do not add fields to this struct */
 };
 
-GtkWidget *frdp_display_new (void);
+GtkWidget *frdp_display_new       (void);
+
+void       frdp_display_open_host (FrdpDisplay *display,
+                                   const gchar *host,
+                                   guint        port);
 
 G_END_DECLS

@@ -2,10 +2,12 @@ api_version = '0.1'
 
 gtk_frdp_sources = [
   'frdp-display.c',
+  'frdp-session.c',
 ]
 
 gtk_frdp_headers = [
   'frdp-display.h',
+  'frdp-session.h',
   'gtk-frdp.h',
 ]
 

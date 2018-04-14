@@ -40,6 +40,8 @@ on_activate (GtkApplication *app)
   gtk_container_add (GTK_CONTAINER (window), display);
   gtk_widget_show (display);
 
+  frdp_display_open_host (FRDP_DISPLAY (display), "192.168.0.13", 3389);
+
   gtk_window_present (window);
 }
 
