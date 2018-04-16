@@ -79,6 +79,33 @@ frdp_display_button_press_event (GtkWidget      *widget,
   return TRUE;
 }
 
+static gboolean
+frdp_display_scroll_event (GtkWidget      *widget,
+                           GdkEventScroll *event)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  guint16 flags = FRDP_MOUSE_EVENT_WHEEL;
+
+  switch (event->direction) {
+    case GDK_SCROLL_UP:
+      break;
+    case GDK_SCROLL_DOWN:
+      flags |= FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      break;
+    case GDK_SCROLL_SMOOTH:
+      g_debug ("scroll smooth unhandled");
+    default:
+      return FALSE;
+  }
+
+  frdp_session_mouse_event (self->priv->session,
+                            flags,
+                            event->x,
+                            event->y);
+
+  return TRUE;
+}
+
 static void
 frdp_display_open_host_cb (GObject      *source_object,
                            GAsyncResult *result,
@@ -158,6 +185,7 @@ frdp_display_class_init (FrdpDisplayClass *klass)
   widget_class->motion_notify_event = frdp_display_motion_notify_event;
   widget_class->button_press_event = frdp_display_button_press_event;
   widget_class->button_release_event = frdp_display_button_press_event;
+  widget_class->scroll_event = frdp_display_scroll_event;
 
   g_object_class_install_property (gobject_class,
                                    PROP_USERNAME,
