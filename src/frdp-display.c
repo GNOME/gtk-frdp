@@ -34,6 +34,51 @@ enum
   PROP_PASSWORD
 };
 
+static gboolean
+frdp_display_motion_notify_event (GtkWidget      *widget,
+                                  GdkEventMotion *event)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+
+  frdp_session_mouse_event (self->priv->session,
+                            FRDP_MOUSE_EVENT_MOVE,
+                            event->x,
+                            event->y);
+
+  return TRUE;
+}
+
+static gboolean
+frdp_display_button_press_event (GtkWidget      *widget,
+                                 GdkEventButton *event)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  guint16 flags = 0;
+
+  if ((event->button < 1) || (event->button > 3))
+    return FALSE;
+
+  if ((event->type != GDK_BUTTON_PRESS) &&
+      (event->type != GDK_BUTTON_RELEASE))
+    return FALSE;
+
+  if (event->type == GDK_BUTTON_PRESS)
+    flags |= FRDP_MOUSE_EVENT_DOWN;
+  if (event->button == 1)
+    flags |= FRDP_MOUSE_EVENT_BUTTON1;
+  if (event->button == 2)
+    flags |= FRDP_MOUSE_EVENT_BUTTON3;
+  if (event->button == 3)
+    flags |= FRDP_MOUSE_EVENT_BUTTON2;
+
+  frdp_session_mouse_event (self->priv->session,
+                            flags,
+                            event->x,
+                            event->y);
+
+  return TRUE;
+}
+
 static void
 frdp_display_open_host_cb (GObject      *source_object,
                            GAsyncResult *result,
@@ -105,9 +150,14 @@ static void
 frdp_display_class_init (FrdpDisplayClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
   gobject_class->get_property = frdp_display_get_property;
   gobject_class->set_property = frdp_display_set_property;
+
+  widget_class->motion_notify_event = frdp_display_motion_notify_event;
+  widget_class->button_press_event = frdp_display_button_press_event;
+  widget_class->button_release_event = frdp_display_button_press_event;
 
   g_object_class_install_property (gobject_class,
                                    PROP_USERNAME,
@@ -135,6 +185,13 @@ frdp_display_init (FrdpDisplay *self)
   priv = self->priv;
 
   priv->session = frdp_session_new (FRDP_DISPLAY (self));
+
+  gtk_widget_add_events (GTK_WIDGET (self),
+                         GDK_POINTER_MOTION_MASK |
+                         GDK_BUTTON_PRESS_MASK |
+                         GDK_BUTTON_RELEASE_MASK |
+                         GDK_SCROLL_MASK |
+                         GDK_SMOOTH_SCROLL_MASK);
 }
 
 void

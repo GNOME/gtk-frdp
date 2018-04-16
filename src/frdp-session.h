@@ -38,6 +38,17 @@ struct _FrdpSession
   /* Do not add fields to this struct */
 };
 
+typedef enum
+{
+  FRDP_MOUSE_EVENT_MOVE           = 1 << 0,
+  FRDP_MOUSE_EVENT_DOWN           = 1 << 1,
+  FRDP_MOUSE_EVENT_WHEEL          = 1 << 2,
+  FRDP_MOUSE_EVENT_WHEEL_NEGATIVE = 1 << 3,
+  FRDP_MOUSE_EVENT_BUTTON1        = 1 << 4,
+  FRDP_MOUSE_EVENT_BUTTON2        = 1 << 5,
+  FRDP_MOUSE_EVENT_BUTTON3        = 1 << 6,
+} FrdpMouseEvent;
+
 FrdpSession *frdp_session_new            (FrdpDisplay          *display);
 
 void         frdp_session_connect        (FrdpSession          *self,
@@ -51,5 +62,9 @@ gboolean     frdp_session_connect_finish (FrdpSession          *self,
                                           GAsyncResult         *result,
                                           GError              **error);
 
+void         frdp_session_mouse_event    (FrdpSession          *self,
+                                          FrdpMouseEvent        event,
+                                          guint16               x,
+                                          guint16               y);
 
 G_END_DECLS
