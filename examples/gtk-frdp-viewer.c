@@ -31,8 +31,6 @@ on_activate (GtkApplication *app)
   if (window == NULL)
     window = g_object_new (GTK_TYPE_APPLICATION_WINDOW,
                            "application", app,
-                           "default-width", 600,
-                           "default-height", 300,
                            NULL);
 
   display = frdp_display_new ();

@@ -61,14 +61,6 @@ frdp_session_draw (GtkWidget *widget,
                    gpointer   user_data)
 {
   FrdpSession *self = (FrdpSession*) user_data;
-  GtkWidget *parent;
-  gint window_width, window_height;
-
-  parent = gtk_widget_get_parent (widget);
-  window_width = gtk_widget_get_allocated_width (parent);
-  window_height = gtk_widget_get_allocated_height (parent);
-
-  gtk_widget_set_size_request (widget, window_width, window_height);
 
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
