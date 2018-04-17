@@ -49,6 +49,12 @@ typedef enum
   FRDP_MOUSE_EVENT_BUTTON3        = 1 << 6,
 } FrdpMouseEvent;
 
+typedef enum
+{
+  FRDP_KEY_EVENT_PRESS   = 1 << 0,
+  FRDP_KEY_EVENT_RELEASE = 1 << 1,
+} FrdpKeyEvent;
+
 FrdpSession *frdp_session_new            (FrdpDisplay          *display);
 
 void         frdp_session_connect        (FrdpSession          *self,
@@ -66,5 +72,9 @@ void         frdp_session_mouse_event    (FrdpSession          *self,
                                           FrdpMouseEvent        event,
                                           guint16               x,
                                           guint16               y);
+
+void         frdp_session_send_key       (FrdpSession          *self,
+                                          FrdpKeyEvent          event,
+                                          guint16               keycode);
 
 G_END_DECLS

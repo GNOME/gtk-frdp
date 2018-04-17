@@ -530,3 +530,42 @@ frdp_session_mouse_event (FrdpSession          *self,
     input->MouseEvent (input, flags, x, y);
   }
 }
+
+static unsigned char keycode_scancodes[] = {
+   0,  0,  0,  0,  0,  0,  0, 28,
+  29, 53, 55, 56,  0, 71, 72, 73,
+  75, 77, 79, 80, 81, 82, 83,  0,
+   0,  0,  0,  0,  0,  0, 69,  0,
+   0,  0,  0,  0, 91, 92, 93,
+};
+
+static guint16
+frdp_session_get_scancode_by_keycode (guint16 keycode)
+{
+  if (keycode < 8)
+    return 0;
+  else if (keycode < 97)
+    return keycode - 8;
+  else if (keycode < 97 + sizeof (keycode_scancodes))
+    return keycode_scancodes[keycode - 97];
+  else
+    return 0;
+}
+
+void
+frdp_session_send_key (FrdpSession  *self,
+                       FrdpKeyEvent  event,
+                       guint16       keycode)
+{
+  rdpInput *input = self->priv->freerdp_session->input;
+  guint16 flags = 0;
+  guint16 scancode =
+      frdp_session_get_scancode_by_keycode (keycode);
+
+  if (event == FRDP_KEY_EVENT_PRESS)
+    flags |= KBD_FLAGS_DOWN;
+  else
+    flags |= KBD_FLAGS_RELEASE;
+
+  input->KeyboardEvent (input, flags, scancode);
+}

@@ -35,6 +35,31 @@ enum
 };
 
 static gboolean
+frdp_display_key_press_event (GtkWidget   *widget,
+                              GdkEventKey *key)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  guint16 keycode = key->hardware_keycode;
+  FrdpKeyEvent event;
+
+  switch (key->type) {
+    case GDK_KEY_PRESS:
+      event = FRDP_KEY_EVENT_PRESS;
+      break;
+    case GDK_KEY_RELEASE:
+      event = FRDP_KEY_EVENT_RELEASE;
+      break;
+    default:
+      g_warn_if_reached ();
+      break;
+  }
+
+  frdp_session_send_key (self->priv->session, event, keycode);
+
+  return TRUE;
+}
+
+static gboolean
 frdp_display_motion_notify_event (GtkWidget      *widget,
                                   GdkEventMotion *event)
 {
@@ -182,6 +207,8 @@ frdp_display_class_init (FrdpDisplayClass *klass)
   gobject_class->get_property = frdp_display_get_property;
   gobject_class->set_property = frdp_display_set_property;
 
+  widget_class->key_press_event = frdp_display_key_press_event;
+  widget_class->key_release_event = frdp_display_key_press_event;
   widget_class->motion_notify_event = frdp_display_motion_notify_event;
   widget_class->button_press_event = frdp_display_button_press_event;
   widget_class->button_release_event = frdp_display_button_press_event;
@@ -219,7 +246,10 @@ frdp_display_init (FrdpDisplay *self)
                          GDK_BUTTON_PRESS_MASK |
                          GDK_BUTTON_RELEASE_MASK |
                          GDK_SCROLL_MASK |
-                         GDK_SMOOTH_SCROLL_MASK);
+                         GDK_SMOOTH_SCROLL_MASK |
+                         GDK_KEY_PRESS_MASK);
+
+  gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 }
 
 void
