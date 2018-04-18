@@ -36,12 +36,21 @@ enum
 };
 
 static gboolean
+frdp_display_is_initialized (FrdpDisplay *self)
+{
+  return self->priv->session != NULL;
+}
+
+static gboolean
 frdp_display_key_press_event (GtkWidget   *widget,
                               GdkEventKey *key)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   guint16 keycode = key->hardware_keycode;
   FrdpKeyEvent event;
+
+  if (!frdp_display_is_initialized (self))
+    return TRUE;
 
   switch (key->type) {
     case GDK_KEY_PRESS:
@@ -66,6 +75,9 @@ frdp_display_motion_notify_event (GtkWidget      *widget,
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
 
+  if (!frdp_display_is_initialized (self))
+    return TRUE;
+
   frdp_session_mouse_event (self->priv->session,
                             FRDP_MOUSE_EVENT_MOVE,
                             event->x,
@@ -80,6 +92,9 @@ frdp_display_button_press_event (GtkWidget      *widget,
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   guint16 flags = 0;
+
+  if (!frdp_display_is_initialized (self))
+    return TRUE;
 
   if ((event->button < 1) || (event->button > 3))
     return FALSE;
@@ -111,6 +126,9 @@ frdp_display_scroll_event (GtkWidget      *widget,
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   guint16 flags = FRDP_MOUSE_EVENT_WHEEL;
+
+  if (!frdp_display_is_initialized (self))
+    return TRUE;
 
   switch (event->direction) {
     case GDK_SCROLL_UP:
@@ -251,9 +269,6 @@ frdp_display_init (FrdpDisplay *self)
   FrdpDisplayPrivate *priv;
 
   self->priv = frdp_display_get_instance_private (self);
-  priv = self->priv;
-
-  priv->session = frdp_session_new (FRDP_DISPLAY (self));
 
   gtk_widget_add_events (GTK_WIDGET (self),
                          GDK_POINTER_MOTION_MASK |
@@ -264,6 +279,8 @@ frdp_display_init (FrdpDisplay *self)
                          GDK_KEY_PRESS_MASK);
 
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
+
+  self->priv->session = NULL;
 }
 
 void
@@ -272,6 +289,8 @@ frdp_display_open_host (FrdpDisplay  *self,
                         guint         port)
 {
   g_return_if_fail (host != NULL);
+
+  self->priv->session = frdp_session_new (self);
 
   frdp_session_connect (self->priv->session,
                         host,
