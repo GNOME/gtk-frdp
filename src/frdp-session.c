@@ -107,11 +107,13 @@ frdp_session_set_password (FrdpSession *self,
   settings->Password = g_strdup (password);
 }
 
-static gboolean
-frdp_certificate_verify (freerdp  *freerdp_session,
-                         gchar    *subject,
-                         gchar    *issuer,
-                         gchar    *fingerprint)
+static guint
+frdp_certificate_verify (freerdp     *freerdp_session,
+                         const gchar *common_name,
+                         const gchar* subject,
+                         const gchar* issuer,
+                         const gchar* fingerprint,
+                         gboolean     host_mismatch)
 {
   /* TODO */
   return FALSE;
@@ -161,16 +163,18 @@ frdp_pre_connect (freerdp *freerdp_session)
   return TRUE;
 }
 
-static void
+static gboolean
 frdp_begin_paint (rdpContext *context)
 {
   rdpGdi *gdi = context->gdi;
 
   gdi->primary->hdc->hwnd->invalid->null = 1;
   gdi->primary->hdc->hwnd->ninvalid = 0;
+
+  return TRUE;
 }
 
-static void
+static gboolean
 frdp_end_paint (rdpContext *context)
 {
   FrdpSessionPrivate *priv;
@@ -179,7 +183,7 @@ frdp_end_paint (rdpContext *context)
   gint x, y, w, h;
 
   if (gdi->primary->hdc->hwnd->invalid->null)
-    return;
+    return FALSE;
 
   x = gdi->primary->hdc->hwnd->invalid->x;
   y = gdi->primary->hdc->hwnd->invalid->y;
@@ -190,6 +194,8 @@ frdp_end_paint (rdpContext *context)
 
   /* TODO: scaling */
   gtk_widget_queue_draw_area (priv->display, x, y, w, h);
+
+  return TRUE;
 }
 
 static gboolean
@@ -199,7 +205,7 @@ frdp_post_connect (freerdp *freerdp_session)
   rdpGdi *gdi;
   gint stride;
 
-  gdi_init (freerdp_session, CLRBUF_24BPP, NULL);
+  gdi_init (freerdp_session, PIXEL_FORMAT_RGBX32);
   gdi = freerdp_session->context->gdi;
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
