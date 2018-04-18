@@ -20,11 +20,20 @@ using Gtk;
 using Frdp;
 
 private class GtkRdpViewer.Application: Gtk.Application {
+    public const int DEFAULT_RDP_PORT = 3389;
+
     private Gtk.ApplicationWindow window;
     private Frdp.Display display;
 
+    static string option_connect_address;
+    const OptionEntry[] options = {
+      { "connect", 0, 0, OptionArg.STRING, ref option_connect_address, "Connect to address", null },
+      { null }
+    };
+
     public Application () {
         application_id = "org.gnome.GtkRdpViewer";
+        flags |= ApplicationFlags.HANDLES_COMMAND_LINE;
     }
 
     protected override void activate () {
@@ -32,12 +41,41 @@ private class GtkRdpViewer.Application: Gtk.Application {
             return;
 
         window = new Gtk.ApplicationWindow (this);
-
         display = new Frdp.Display();
-        display.open_host ("10.43.12.92", 3389);
 
         window.add(display);
         window.show_all ();
+    }
+
+    protected override int command_line (GLib.ApplicationCommandLine cmdline) {
+        option_connect_address = null;
+
+        var opt_context = new OptionContext ("A RDP Viewer");
+        opt_context.add_main_entries (options, null);
+        opt_context.set_help_enabled (true);
+
+        try {
+            string[] args1 = cmdline.get_arguments ();
+            unowned string[] args2 = args1;
+
+            opt_context.parse (ref args2);
+        } catch (OptionError error) {
+            cmdline.printerr ("%s\n", error.message);
+
+            return 1;
+        }
+
+        if (option_connect_address != null) {
+            connect_to (option_connect_address);
+        }
+
+        return 0;
+    }
+
+    private void connect_to (string address) {
+        activate ();
+
+        display.open_host (address, DEFAULT_RDP_PORT);
     }
 }
 
