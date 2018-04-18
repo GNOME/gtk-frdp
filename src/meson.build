@@ -31,6 +31,7 @@ configure_file(
 )
 
 cc = meson.get_compiler('c')
+vala = meson.get_compiler('vala')
 
 gtk_frdp_deps = [
   dependency('freerdp2'),
@@ -66,6 +67,14 @@ gtk_frdp_gir = gnome.generate_gir(gtk_frdp_lib,
   install_dir_gir: girdir,
   install_dir_typelib: typelibdir,
   extra_args: [ '--c-include=gtk-frdp.h', '--quiet' ],
+)
+
+gtk_frdp_vapi = gnome.generate_vapi('gtk-frdp-' + api_version,
+  sources: gtk_frdp_gir[0],
+  packages: [ 'gio-2.0', 'gtk+-3.0' ],
+  install: true,
+  install_dir: vapidir,
+  metadata_dirs: [ meson.current_source_dir() ],
 )
 
 pkg = import('pkgconfig')

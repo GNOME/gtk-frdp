@@ -1,4 +1,5 @@
-project('gtk-frdp','c',
+project('gtk-frdp',
+  ['c', 'vala'],
   version: '0.1.0',
   meson_version: '>= 0.40.0',
 )
@@ -18,6 +19,7 @@ datadir = get_option('datadir')
 libdir = get_option('libdir')
 girdir = join_paths(datadir, 'gir-1.0')
 typelibdir = join_paths(libdir, 'girepository-1.0')
+vapidir = join_paths(datadir, 'vala', 'vapi')
 
 gnome = import('gnome')
 
