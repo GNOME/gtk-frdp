@@ -14,6 +14,13 @@ add_project_arguments([
   '-I' + meson.build_root(),
 ], language: 'c')
 
+datadir = get_option('datadir')
+libdir = get_option('libdir')
+girdir = join_paths(datadir, 'gir-1.0')
+typelibdir = join_paths(libdir, 'girepository-1.0')
+
+gnome = import('gnome')
+
 subdir('src')
 subdir('examples')
 

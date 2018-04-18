@@ -54,6 +54,20 @@ gtk_frdp_dep = declare_dependency(
 
 install_headers(gtk_frdp_headers, subdir: 'gtk-frdp')
 
+gtk_frdp_gir = gnome.generate_gir(gtk_frdp_lib,
+  sources: gtk_frdp_sources + gtk_frdp_headers,
+  nsversion: api_version,
+  namespace: 'GtkFrdp',
+  symbol_prefix: 'frdp',
+  identifier_prefix: 'Frdp',
+  link_with: gtk_frdp_lib,
+  includes: ['Gio-2.0', 'Gtk-3.0'],
+  install: true,
+  install_dir_gir: girdir,
+  install_dir_typelib: typelibdir,
+  extra_args: [ '--c-include=gtk-frdp.h', '--quiet' ],
+)
+
 pkg = import('pkgconfig')
 
 pkg.generate(
