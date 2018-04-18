@@ -30,10 +30,13 @@ configure_file(
   install_dir: join_paths(get_option('includedir'), 'gtk-frdp')
 )
 
+cc = meson.get_compiler('c')
+
 gtk_frdp_deps = [
   dependency('freerdp2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
+  cc.find_library('m'),
 ]
 
 gtk_frdp_lib = shared_library('gtk-frdp-' + api_version,
