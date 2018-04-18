@@ -31,7 +31,8 @@ enum
 {
   PROP_O = 0,
   PROP_USERNAME,
-  PROP_PASSWORD
+  PROP_PASSWORD,
+  PROP_SCALING
 };
 
 static gboolean
@@ -155,19 +156,21 @@ frdp_display_get_property (GObject      *object,
 {
   FrdpDisplay *self = FRDP_DISPLAY (object);
   FrdpSession *session = self->priv->session;
-  gchar *str_property;
+  gpointer str_property;
 
   switch (property_id)
     {
       case PROP_USERNAME:
         g_object_get (session, "username", &str_property, NULL);
         g_value_set_string (value, str_property);
-        g_free (str_property);
         break;
       case PROP_PASSWORD:
         g_object_get (session, "password", &str_property, NULL);
         g_value_set_string (value, str_property);
-        g_free (str_property);
+        break;
+      case PROP_SCALING:
+        g_object_get (session, "scaling", &str_property, NULL);
+        g_value_set_boolean (value, (gboolean)GPOINTER_TO_INT (str_property));
         break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -191,6 +194,9 @@ frdp_display_set_property (GObject      *object,
         break;
       case PROP_PASSWORD:
         g_object_set (session, "password", g_value_get_string (value), NULL);
+        break;
+      case PROP_SCALING:
+        frdp_display_set_scaling (self, g_value_get_boolean (value));
         break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -229,6 +235,14 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                         "password",
                                                         NULL,
                                                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SCALING,
+                                   g_param_spec_boolean ("scaling",
+                                                         "scaling",
+                                                         "scaling",
+                                                         TRUE,
+                                                         G_PARAM_READWRITE));
 }
 
 static void
@@ -266,6 +280,27 @@ frdp_display_open_host (FrdpDisplay  *self,
                         frdp_display_open_host_cb,
                         self);
 
+}
+
+void
+frdp_display_set_scaling (FrdpDisplay *self,
+                          gboolean     scaling)
+{
+  g_object_set (self->priv->session, "scaling", scaling, NULL);
+
+  if (scaling) {
+    gtk_widget_set_size_request (GTK_WIDGET (self), -1, -1);
+
+    gtk_widget_set_halign (GTK_WIDGET (self), GTK_ALIGN_FILL);
+    gtk_widget_set_valign (GTK_WIDGET (self), GTK_ALIGN_FILL);
+  } else {
+    gtk_widget_set_halign (GTK_WIDGET (self), GTK_ALIGN_CENTER);
+    gtk_widget_set_valign (GTK_WIDGET (self), GTK_ALIGN_CENTER);
+  }
+
+  gtk_widget_queue_draw_area (GTK_WIDGET (self), 0, 0,
+                              gtk_widget_get_allocated_width (GTK_WIDGET (self)),
+                              gtk_widget_get_allocated_height (GTK_WIDGET (self)));
 }
 
 GtkWidget *frdp_display_new (void)

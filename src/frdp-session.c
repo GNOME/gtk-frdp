@@ -21,6 +21,7 @@
 #include <freerdp/gdi/gdi.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
+#include <math.h>
 
 #include "frdp-session.h"
 
@@ -32,6 +33,8 @@ struct _FrdpSessionPrivate
 
   GtkWidget    *display;
   cairo_surface_t *surface;
+  gboolean scaling;
+  double scale;
 
   guint update_id;
 };
@@ -45,7 +48,8 @@ enum
   PROP_PORT,
   PROP_USERNAME,
   PROP_PASSWORD,
-  PROP_DISPLAY
+  PROP_DISPLAY,
+  PROP_SCALING
 };
 
 struct frdp_context
@@ -55,6 +59,37 @@ struct frdp_context
 };
 typedef struct frdp_context frdpContext;
 
+static void
+frdp_session_configure_event (GtkWidget *widget,
+                              GdkEvent  *event,
+                              gpointer   user_data)
+{
+  FrdpSession *self = (FrdpSession*) user_data;
+  rdpSettings *settings = self->priv->freerdp_session->settings;
+  gint width, height;
+
+  if (self->priv->scaling) {
+    width = gtk_widget_get_allocated_width (widget);
+    height = gtk_widget_get_allocated_height (widget);
+
+    if (width < height)
+      self->priv->scale = (double) width / settings->DesktopWidth;
+    else
+      self->priv->scale = (double) height / settings->DesktopHeight;
+
+    settings->DesktopScaleFactor = self->priv->scale;
+  }
+}
+
+static void
+frdp_session_set_scaling (FrdpSession *self,
+                          gboolean     scaling)
+{
+  self->priv->scaling = scaling;
+
+  frdp_session_configure_event (self->priv->display, NULL, self);
+}
+
 static gboolean
 frdp_session_draw (GtkWidget *widget,
                    cairo_t   *cr,
@@ -62,6 +97,9 @@ frdp_session_draw (GtkWidget *widget,
 {
   FrdpSession *self = (FrdpSession*) user_data;
 
+  if (self->priv->scaling) {
+      cairo_scale (cr, self->priv->scale, self->priv->scale);
+  }
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
 
@@ -181,6 +219,7 @@ frdp_end_paint (rdpContext *context)
   FrdpSession *self = ((frdpContext *) context)->self;
   rdpGdi *gdi = context->gdi;
   gint x, y, w, h;
+  gint pos_x, pos_y;
 
   if (gdi->primary->hdc->hwnd->invalid->null)
     return FALSE;
@@ -192,8 +231,17 @@ frdp_end_paint (rdpContext *context)
 
   priv = self->priv;
 
-  /* TODO: scaling */
-  gtk_widget_queue_draw_area (priv->display, x, y, w, h);
+  if (priv->scaling) {
+      pos_x = x * priv->scale;
+      pos_y = y * priv->scale;
+      gtk_widget_queue_draw_area (priv->display,
+                                  floor (pos_x),
+                                  floor (pos_y),
+                                  ceil (pos_x + w * priv->scale) - floor (pos_x),
+                                  ceil (pos_y + h * priv->scale) - floor (pos_y));
+  } else {
+    gtk_widget_queue_draw_area (priv->display, x, y, w, h);
+  }
 
   return TRUE;
 }
@@ -303,6 +351,9 @@ frdp_session_connect_thread (GTask        *task,
 
   g_signal_connect (self->priv->display, "draw",
                     G_CALLBACK (frdp_session_draw), self);
+  g_signal_connect (self->priv->display, "configure-event",
+                    G_CALLBACK (frdp_session_configure_event), self);
+  frdp_session_set_scaling (self, TRUE);
 
   self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
 
@@ -335,6 +386,9 @@ frdp_session_get_property (GObject    *object,
       case PROP_DISPLAY:
         g_value_set_object (value, self->priv->display);
         break;
+      case PROP_SCALING:
+        g_value_set_boolean (value, self->priv->scaling);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -365,6 +419,9 @@ frdp_session_set_property (GObject      *object,
         break;
       case PROP_DISPLAY:
         self->priv->display = g_value_get_object (value);
+        break;
+      case PROP_SCALING:
+        frdp_session_set_scaling (self, g_value_get_boolean (value));
         break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -434,6 +491,14 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                         "display",
                                                         GTK_TYPE_WIDGET,
                                                         G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SCALING,
+                                   g_param_spec_boolean ("scaling",
+                                                         "scaling",
+                                                         "scaling",
+                                                         TRUE,
+                                                         G_PARAM_READWRITE));
 }
 
 static void
@@ -528,6 +593,11 @@ frdp_session_mouse_event (FrdpSession          *self,
     flags |= PTR_FLAGS_BUTTON3;
 
   input = priv->freerdp_session->input;
+
+  if (priv->scaling) {
+    x = x / priv->scale;
+    y = y / priv->scale;
+  }
 
   if (flags != 0) {
     x = x < 0.0 ? 0.0 : x;

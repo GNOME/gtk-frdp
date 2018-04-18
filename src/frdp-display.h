@@ -44,4 +44,7 @@ void       frdp_display_open_host (FrdpDisplay *display,
                                    const gchar *host,
                                    guint        port);
 
+void       frdp_display_set_scaling (FrdpDisplay *display,
+                                     gboolean     scaling);
+
 G_END_DECLS
