@@ -55,24 +55,21 @@ frdp_display_key_press_event (GtkWidget   *widget,
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   guint16 keycode = key->hardware_keycode;
-  FrdpKeyEvent event;
 
   if (!frdp_display_is_initialized (self))
     return TRUE;
 
   switch (key->type) {
     case GDK_KEY_PRESS:
-      event = FRDP_KEY_EVENT_PRESS;
+      frdp_session_send_key (self->priv->session, FRDP_KEY_EVENT_PRESS, keycode);
       break;
     case GDK_KEY_RELEASE:
-      event = FRDP_KEY_EVENT_RELEASE;
+      frdp_session_send_key (self->priv->session, FRDP_KEY_EVENT_RELEASE, keycode);
       break;
     default:
       g_warn_if_reached ();
       break;
   }
-
-  frdp_session_send_key (self->priv->session, event, keycode);
 
   return TRUE;
 }
