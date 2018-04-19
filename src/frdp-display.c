@@ -167,8 +167,6 @@ frdp_display_open_host_cb (GObject      *source_object,
   success = frdp_session_connect_finish (session,
                                          result,
                                          &error);
-
-  g_print ("OPEN HOST CB! %d\n", success);
 }
 
 static void
