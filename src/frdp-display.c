@@ -38,6 +38,7 @@ enum
 enum
 {
   RDP_INITIALIZED,
+  RDP_CONNECTED,
   LAST_SIGNAL
 };
 
@@ -160,6 +161,7 @@ frdp_display_open_host_cb (GObject      *source_object,
                            GAsyncResult *result,
                            gpointer      user_data)
 {
+  FrdpDisplay *self = FRDP_DISPLAY (user_data);
   FrdpSession *session = (FrdpSession*) source_object;
   gboolean success;
   GError  *error = NULL;
@@ -167,6 +169,10 @@ frdp_display_open_host_cb (GObject      *source_object,
   success = frdp_session_connect_finish (session,
                                          result,
                                          &error);
+
+  if (success) {
+    g_signal_emit (self, signals[RDP_CONNECTED], 0);
+  }
 }
 
 static void
@@ -270,6 +276,12 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                            G_SIGNAL_RUN_LAST,
                                            0, NULL, NULL, NULL,
                                            G_TYPE_NONE, 0);
+
+  signals[RDP_CONNECTED] = g_signal_new ("rdp-connected",
+                                         G_TYPE_FROM_CLASS (klass),
+                                         G_SIGNAL_RUN_LAST,
+                                         0, NULL, NULL, NULL,
+                                         G_TYPE_NONE, 0);
 }
 
 static void
