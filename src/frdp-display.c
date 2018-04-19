@@ -35,6 +35,14 @@ enum
   PROP_SCALING
 };
 
+enum
+{
+  RDP_INITIALIZED,
+  LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL];
+
 static gboolean
 frdp_display_is_initialized (FrdpDisplay *self)
 {
@@ -261,13 +269,17 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                          "scaling",
                                                          TRUE,
                                                          G_PARAM_READWRITE));
+
+  signals[RDP_INITIALIZED] = g_signal_new ("rdp-initialized",
+                                           G_TYPE_FROM_CLASS (klass),
+                                           G_SIGNAL_RUN_LAST,
+                                           0, NULL, NULL, NULL,
+                                           G_TYPE_NONE, 0);
 }
 
 static void
 frdp_display_init (FrdpDisplay *self)
 {
-  FrdpDisplayPrivate *priv;
-
   self->priv = frdp_display_get_instance_private (self);
 
   gtk_widget_add_events (GTK_WIDGET (self),
@@ -299,6 +311,7 @@ frdp_display_open_host (FrdpDisplay  *self,
                         frdp_display_open_host_cb,
                         self);
 
+  g_signal_emit (self, signals[RDP_INITIALIZED], 0);
 }
 
 void
