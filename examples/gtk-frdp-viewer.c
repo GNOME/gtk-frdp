@@ -38,12 +38,12 @@ on_activate (GtkApplication *app)
   gtk_container_add (GTK_CONTAINER (window), display);
   gtk_widget_show (display);
 
+  frdp_display_open_host (FRDP_DISPLAY (display), "109.168.97.222", 3389);
   g_object_set (display,
-                "username", "user",
-                "password", "pass",
+                "username", "demo2",
+                "password", "D3m02014*Test",
                 NULL);
 
-  frdp_display_open_host (FRDP_DISPLAY (display), "192.168.0.13", 3389);
 
   gtk_window_present (window);
 }
