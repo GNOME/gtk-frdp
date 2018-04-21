@@ -461,7 +461,7 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_HOSTNAME,
+                                   PROP_PORT,
                                    g_param_spec_uint ("port",
                                                       "port",
                                                       "port",
@@ -469,7 +469,7 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                        G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_HOSTNAME,
+                                   PROP_USERNAME,
                                    g_param_spec_string ("username",
                                                         "username",
                                                         "username",
@@ -477,7 +477,7 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_HOSTNAME,
+                                   PROP_PASSWORD,
                                    g_param_spec_string ("password",
                                                         "password",
                                                         "password",
