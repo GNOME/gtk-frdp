@@ -253,7 +253,7 @@ frdp_post_connect (freerdp *freerdp_session)
   rdpGdi *gdi;
   gint stride;
 
-  gdi_init (freerdp_session, PIXEL_FORMAT_RGBX32);
+  gdi_init (freerdp_session, PIXEL_FORMAT_BGRA32);
   gdi = freerdp_session->context->gdi;
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
