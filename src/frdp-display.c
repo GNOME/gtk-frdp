@@ -187,6 +187,8 @@ frdp_display_open_host_cb (GObject      *source_object,
 
     g_debug ("Connection established");
   } else {
+    g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
+
     g_debug ("Connection failed: %s", error->message);
   }
 }
