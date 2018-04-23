@@ -184,6 +184,10 @@ frdp_display_open_host_cb (GObject      *source_object,
 
   if (success) {
     g_signal_emit (self, signals[RDP_CONNECTED], 0);
+
+    g_debug ("Connection established");
+  } else {
+    g_debug ("Connection failed: %s", error->message);
   }
 }
 
@@ -364,6 +368,8 @@ frdp_display_open_host (FrdpDisplay  *display,
                         display);
 
   g_signal_emit (display, signals[RDP_INITIALIZED], 0);
+
+  g_debug ("Connecting to %s…", host);
 }
 
 /**

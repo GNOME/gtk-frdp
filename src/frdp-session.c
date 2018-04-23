@@ -469,6 +469,8 @@ frdp_session_finalize (GObject *object)
     freerdp_disconnect (self->priv->freerdp_session);
     freerdp_context_free (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
+
+    g_debug ("Session disconnected");
   }
 
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
