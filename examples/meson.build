@@ -16,6 +16,6 @@ vala_example_application = executable('gtk-frdp-viewer-vala',
   link_with: gtk_frdp_lib,
   dependencies: [
     dependency ('gtk+-3.0'),
-    dependency ('gtk-frdp-0.1')
+    gtk_frdp_vapi,
   ],
 )
