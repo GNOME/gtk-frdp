@@ -39,6 +39,7 @@ enum
 {
   RDP_INITIALIZED,
   RDP_CONNECTED,
+  RDP_DISCONNECTED,
   LAST_SIGNAL
 };
 
@@ -47,7 +48,7 @@ static guint signals[LAST_SIGNAL];
 static gboolean
 frdp_display_is_initialized (FrdpDisplay *self)
 {
-  return self->priv->session != NULL;
+  return self->priv->session != NULL && frdp_display_is_open (self);
 }
 
 static gboolean
@@ -154,6 +155,17 @@ frdp_display_scroll_event (GtkWidget      *widget,
                             event->y);
 
   return TRUE;
+}
+
+static void
+frdp_display_disconnected (GObject  *source_object,
+                           gpointer  user_data)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (user_data);
+
+  g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
+
+  g_debug ("rdp disconnected");
 }
 
 static void
@@ -282,6 +294,12 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                          G_SIGNAL_RUN_LAST,
                                          0, NULL, NULL, NULL,
                                          G_TYPE_NONE, 0);
+
+  signals[RDP_DISCONNECTED] = g_signal_new ("rdp-disconnected",
+                                            G_TYPE_FROM_CLASS (klass),
+                                            G_SIGNAL_RUN_LAST,
+                                            0, NULL, NULL, NULL,
+                                            G_TYPE_NONE, 0);
 }
 
 static void
@@ -311,6 +329,10 @@ frdp_display_open_host (FrdpDisplay  *self,
 
   self->priv->session = frdp_session_new (self);
 
+  g_signal_connect (self->priv->session, "rdp-disconnected",
+                    G_CALLBACK (frdp_display_disconnected),
+                    self);
+
   frdp_session_connect (self->priv->session,
                         host,
                         port,
@@ -319,6 +341,12 @@ frdp_display_open_host (FrdpDisplay  *self,
                         self);
 
   g_signal_emit (self, signals[RDP_INITIALIZED], 0);
+}
+
+gboolean
+frdp_display_is_open (FrdpDisplay *self)
+{
+  return frdp_session_is_open (self->priv->session);
 }
 
 void

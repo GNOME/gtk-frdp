@@ -37,6 +37,8 @@ struct _FrdpSessionPrivate
   double scale;
 
   guint update_id;
+
+  gboolean is_connected;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -51,6 +53,15 @@ enum
   PROP_DISPLAY,
   PROP_SCALING
 };
+
+enum
+{
+  RDP_CONNECTED,
+  RDP_DISCONNECTED,
+  LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL];
 
 struct frdp_context
 {
@@ -277,6 +288,16 @@ frdp_post_connect (freerdp *freerdp_session)
 }
 
 static gboolean
+idle_close (gpointer user_data)
+{
+  FrdpSession *self = (FrdpSession*) user_data;
+
+  g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
+
+  return FALSE;
+}
+
+static gboolean
 update (gpointer user_data)
 {
   FrdpSessionPrivate *priv;
@@ -332,6 +353,8 @@ update (gpointer user_data)
   }
 
   if (freerdp_shall_disconnect (priv->freerdp_session)) {
+      g_idle_add ((GSourceFunc) idle_close, self);
+
       return FALSE;
   }
 
@@ -345,19 +368,20 @@ frdp_session_connect_thread (GTask        *task,
                              GCancellable *cancellable)
 {
   FrdpSession *self = (FrdpSession*) source_object;
-  gboolean result;
 
-  result = freerdp_connect (self->priv->freerdp_session);
+  self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
 
-  g_signal_connect (self->priv->display, "draw",
-                    G_CALLBACK (frdp_session_draw), self);
-  g_signal_connect (self->priv->display, "configure-event",
-                    G_CALLBACK (frdp_session_configure_event), self);
-  frdp_session_set_scaling (self, TRUE);
+  if (self->priv->is_connected) {
+    g_signal_connect (self->priv->display, "draw",
+                      G_CALLBACK (frdp_session_draw), self);
+    g_signal_connect (self->priv->display, "configure-event",
+                      G_CALLBACK (frdp_session_configure_event), self);
+    frdp_session_set_scaling (self, TRUE);
 
-  self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
+    self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
+  }
 
-  g_task_return_boolean (task, result);
+  g_task_return_boolean (task, self->priv->is_connected);
 }
 
 static void
@@ -499,6 +523,12 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                          "scaling",
                                                          TRUE,
                                                          G_PARAM_READWRITE));
+
+  signals[RDP_DISCONNECTED] = g_signal_new ("rdp-disconnected",
+                                            FRDP_TYPE_SESSION,
+                                            G_SIGNAL_RUN_FIRST,
+                                            0, NULL, NULL, NULL,
+                                            G_TYPE_NONE, 0);
 }
 
 static void
@@ -520,6 +550,8 @@ frdp_session_init (FrdpSession *self)
 
   freerdp_context_new (priv->freerdp_session);
   ((frdpContext *) priv->freerdp_session->context)->self = self;
+
+  self->priv->is_connected = FALSE;
 }
 
 FrdpSession*
@@ -559,6 +591,12 @@ frdp_session_connect_finish (FrdpSession   *self,
   g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
 
   return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+gboolean
+frdp_session_is_open (FrdpSession *self)
+{
+  return self->priv->is_connected;
 }
 
 void
