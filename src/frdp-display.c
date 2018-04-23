@@ -320,56 +320,92 @@ frdp_display_init (FrdpDisplay *self)
   self->priv->session = NULL;
 }
 
+/**
+ * frdp_display_open_host:
+ * @display: (transfer none): the RDP display widget
+ * @host: (transfer none): the hostname or IP address
+ * @port: the service name or port number
+ *
+ * Opens a TCP connection to the given @host litening on
+ * @port.
+ */
 void
-frdp_display_open_host (FrdpDisplay  *self,
+frdp_display_open_host (FrdpDisplay  *display,
                         const gchar  *host,
                         guint         port)
 {
   g_return_if_fail (host != NULL);
 
-  self->priv->session = frdp_session_new (self);
+  display->priv->session = frdp_session_new (display);
 
-  g_signal_connect (self->priv->session, "rdp-disconnected",
+  g_signal_connect (display->priv->session, "rdp-disconnected",
                     G_CALLBACK (frdp_display_disconnected),
-                    self);
+                    display);
 
-  frdp_session_connect (self->priv->session,
+  frdp_session_connect (display->priv->session,
                         host,
                         port,
                         NULL, // TODO: Cancellable
                         frdp_display_open_host_cb,
-                        self);
+                        display);
 
-  g_signal_emit (self, signals[RDP_INITIALIZED], 0);
+  g_signal_emit (display, signals[RDP_INITIALIZED], 0);
 }
 
+/**
+ * frdp_display_is_open:
+ * @display: (transfer none): the RDP display widget
+ *
+ * Check if the connection for the display is currently open
+ *
+ * Returns: TRUE if open, FALSE if closing/closed
+ */
 gboolean
-frdp_display_is_open (FrdpDisplay *self)
+frdp_display_is_open (FrdpDisplay *display)
 {
-  return frdp_session_is_open (self->priv->session);
+  return frdp_session_is_open (display->priv->session);
 }
 
+/**
+ * frdp_display_set_scaling:
+ * @display: (transfer none): the RDP display widget
+ * @scaling: TRUE to scale the desktop to fit, FALSE otherwise
+ *
+ * Set whether the remote desktop contents is automatically
+ * scaled to fit the available widget size, or whether it will
+ * be rendered at 1:1 size
+ */
 void
-frdp_display_set_scaling (FrdpDisplay *self,
+frdp_display_set_scaling (FrdpDisplay *display,
                           gboolean     scaling)
 {
-  g_object_set (self->priv->session, "scaling", scaling, NULL);
+  g_object_set (display->priv->session, "scaling", scaling, NULL);
 
   if (scaling) {
-    gtk_widget_set_size_request (GTK_WIDGET (self), -1, -1);
+    gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
 
-    gtk_widget_set_halign (GTK_WIDGET (self), GTK_ALIGN_FILL);
-    gtk_widget_set_valign (GTK_WIDGET (self), GTK_ALIGN_FILL);
+    gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+    gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
   } else {
-    gtk_widget_set_halign (GTK_WIDGET (self), GTK_ALIGN_CENTER);
-    gtk_widget_set_valign (GTK_WIDGET (self), GTK_ALIGN_CENTER);
+    gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_CENTER);
+    gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_CENTER);
   }
 
-  gtk_widget_queue_draw_area (GTK_WIDGET (self), 0, 0,
-                              gtk_widget_get_allocated_width (GTK_WIDGET (self)),
-                              gtk_widget_get_allocated_height (GTK_WIDGET (self)));
+  gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
+                              gtk_widget_get_allocated_width (GTK_WIDGET (display)),
+                              gtk_widget_get_allocated_height (GTK_WIDGET (display)));
 }
 
+/*
+ * frdp_display_new:
+ *
+ * Create a new widget capable of connecting to a RDP server
+ * and displaying its contents
+ *
+ * The widget will be initially be in a disconnected state
+ *
+ * Returns: (transfer full): the new RDP display widget
+ */
 GtkWidget *frdp_display_new (void)
 {
   return GTK_WIDGET (g_object_new (FRDP_TYPE_DISPLAY, NULL));
