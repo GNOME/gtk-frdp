@@ -464,6 +464,13 @@ frdp_session_finalize (GObject *object)
     self->priv->update_id = 0;
   }
 
+  if (self->priv->freerdp_session) {
+    gdi_free (self->priv->freerdp_session);
+    freerdp_disconnect (self->priv->freerdp_session);
+    freerdp_context_free (self->priv->freerdp_session);
+    g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
+  }
+
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
 }
 
