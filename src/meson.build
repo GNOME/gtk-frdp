@@ -22,12 +22,15 @@ version_conf.set('MAJOR_VERSION', MAJOR_VERSION)
 version_conf.set('MINOR_VERSION', MINOR_VERSION)
 version_conf.set('MICRO_VERSION', MICRO_VERSION)
 
+gtk_frdp_header_subdir = join_paths(package_subdir, 'gtk-frdp')
+gtk_frdp_header_dir = join_paths(get_option('includedir'), gtk_frdp_header_subdir)
+
 configure_file(
   input: 'gtk-frdp-version.h.in',
   output: 'gtk-frdp-version.h',
   configuration: version_conf,
   install: true,
-  install_dir: join_paths(get_option('includedir'), 'gtk-frdp')
+  install_dir: gtk_frdp_header_dir
 )
 
 cc = meson.get_compiler('c')

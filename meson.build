@@ -15,11 +15,16 @@ add_project_arguments([
   '-I' + meson.build_root(),
 ], language: 'c')
 
+package_subdir = get_option('package_subdir')
 datadir = get_option('datadir')
-libdir = get_option('libdir')
-girdir = join_paths(datadir, 'gir-1.0')
-typelibdir = join_paths(libdir, 'girepository-1.0')
-vapidir = join_paths(datadir, 'vala', 'vapi')
+libdir = join_paths(get_option('libdir'), package_subdir)
+girdir = join_paths(datadir, package_subdir, 'gir-1.0')
+typelibdir = join_paths(libdir, package_subdir, 'girepository-1.0')
+if package_subdir != ''
+  vapidir = join_paths(datadir, package_subdir, 'vapi')
+else
+  vapidir = join_paths(datadir, 'vala', 'vapi')
+endif
 
 gnome = import('gnome')
 
