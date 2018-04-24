@@ -37,7 +37,6 @@ enum
 
 enum
 {
-  RDP_INITIALIZED,
   RDP_CONNECTED,
   RDP_DISCONNECTED,
   LAST_SIGNAL
@@ -194,19 +193,6 @@ frdp_display_open_host_cb (GObject      *source_object,
 }
 
 static void
-frdp_display_destroy (GtkWidget *widget)
-{
-  FrdpDisplay *self = FRDP_DISPLAY (widget);
-
-  if (self->priv->session != NULL) {
-    g_object_unref (self->priv->session);
-    self->priv->session = NULL;
-  }
-
-  GTK_WIDGET_CLASS (frdp_display_parent_class)->destroy (widget);
-}
-
-static void
 frdp_display_get_property (GObject      *object,
                            guint         property_id,
                            GValue       *value,
@@ -277,7 +263,6 @@ frdp_display_class_init (FrdpDisplayClass *klass)
   widget_class->button_press_event = frdp_display_button_press_event;
   widget_class->button_release_event = frdp_display_button_press_event;
   widget_class->scroll_event = frdp_display_scroll_event;
-  widget_class->destroy = frdp_display_destroy;
 
   g_object_class_install_property (gobject_class,
                                    PROP_USERNAME,
@@ -302,12 +287,6 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                          "scaling",
                                                          TRUE,
                                                          G_PARAM_READWRITE));
-
-  signals[RDP_INITIALIZED] = g_signal_new ("rdp-initialized",
-                                           G_TYPE_FROM_CLASS (klass),
-                                           G_SIGNAL_RUN_LAST,
-                                           0, NULL, NULL, NULL,
-                                           G_TYPE_NONE, 0);
 
   signals[RDP_CONNECTED] = g_signal_new ("rdp-connected",
                                          G_TYPE_FROM_CLASS (klass),
@@ -368,8 +347,6 @@ frdp_display_open_host (FrdpDisplay  *display,
                         NULL, // TODO: Cancellable
                         frdp_display_open_host_cb,
                         display);
-
-  g_signal_emit (display, signals[RDP_INITIALIZED], 0);
 
   g_debug ("Connecting to %s…", host);
 }
