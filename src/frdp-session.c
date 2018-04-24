@@ -379,6 +379,8 @@ frdp_session_connect_thread (GTask        *task,
     frdp_session_set_scaling (self, TRUE);
 
     self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
+  } else {
+    freerdp_free (self->priv->freerdp_session);
   }
 
   g_task_return_boolean (task, self->priv->is_connected);
@@ -459,19 +461,12 @@ frdp_session_finalize (GObject *object)
   FrdpSession *self = (FrdpSession*) object;
   /* TODO: free the world! */
 
-  if (self->priv->update_id > 0) {
-    g_source_remove (self->priv->update_id);
-    self->priv->update_id = 0;
-  }
-
   if (self->priv->freerdp_session) {
-    gdi_free (self->priv->freerdp_session);
     freerdp_disconnect (self->priv->freerdp_session);
-    freerdp_context_free (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
-
-    g_debug ("Session disconnected");
   }
+
+  frdp_session_close (self);
 
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
 }
@@ -543,22 +538,7 @@ frdp_session_class_init (FrdpSessionClass *klass)
 static void
 frdp_session_init (FrdpSession *self)
 {
-  FrdpSessionPrivate *priv;
-
   self->priv = frdp_session_get_instance_private (self);
-  priv = self->priv;
-
-  /* Setup FreeRDP session */
-  priv->freerdp_session = freerdp_new ();
-  priv->freerdp_session->PreConnect = frdp_pre_connect;
-  priv->freerdp_session->PostConnect = frdp_post_connect;
-  priv->freerdp_session->Authenticate = frdp_authenticate;
-  priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
-
-  priv->freerdp_session->ContextSize = sizeof (frdpContext);
-
-  freerdp_context_new (priv->freerdp_session);
-  ((frdpContext *) priv->freerdp_session->context)->self = self;
 
   self->priv->is_connected = FALSE;
 }
@@ -581,7 +561,22 @@ frdp_session_connect (FrdpSession         *self,
                       GAsyncReadyCallback  callback,
                       gpointer             user_data)
 {
+  FrdpSessionPrivate *priv = self->priv;
   GTask *task;
+
+  if (!self->priv->is_connected) {
+    /* Setup FreeRDP session */
+    priv->freerdp_session = freerdp_new ();
+    priv->freerdp_session->PreConnect = frdp_pre_connect;
+    priv->freerdp_session->PostConnect = frdp_post_connect;
+    priv->freerdp_session->Authenticate = frdp_authenticate;
+    priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
+
+    priv->freerdp_session->ContextSize = sizeof (frdpContext);
+
+    freerdp_context_new (priv->freerdp_session);
+    ((frdpContext *) priv->freerdp_session->context)->self = self;
+  }
 
   frdp_session_set_hostname (self, hostname);
   frdp_session_set_port (self, port);
@@ -606,6 +601,24 @@ gboolean
 frdp_session_is_open (FrdpSession *self)
 {
   return self->priv->is_connected;
+}
+
+void
+frdp_session_close (FrdpSession *self)
+{
+  if (self->priv->update_id > 0) {
+    g_source_remove (self->priv->update_id);
+    self->priv->update_id = 0;
+  }
+
+  if (self->priv->freerdp_session != NULL) {
+    gdi_free (self->priv->freerdp_session);
+    freerdp_context_free (self->priv->freerdp_session);
+
+    self->priv->is_connected = FALSE;
+
+    g_debug ("Closing RDP session");
+  }
 }
 
 void

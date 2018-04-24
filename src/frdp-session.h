@@ -70,6 +70,8 @@ gboolean     frdp_session_connect_finish (FrdpSession          *self,
 
 gboolean     frdp_session_is_open        (FrdpSession          *self);
 
+void         frdp_session_close          (FrdpSession          *self);
+
 void         frdp_session_mouse_event    (FrdpSession          *self,
                                           FrdpMouseEvent        event,
                                           guint16               x,
