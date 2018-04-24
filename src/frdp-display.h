@@ -46,6 +46,8 @@ void       frdp_display_open_host (FrdpDisplay *display,
 
 gboolean   frdp_display_is_open   (FrdpDisplay *display);
 
+void       frdp_display_close     (FrdpDisplay *display);
+
 void       frdp_display_set_scaling (FrdpDisplay *display,
                                      gboolean     scaling);
 

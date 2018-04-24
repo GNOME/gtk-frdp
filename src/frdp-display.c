@@ -189,6 +189,8 @@ frdp_display_open_host_cb (GObject      *source_object,
     g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
 
     g_debug ("Connection failed: %s", error->message);
+
+    frdp_display_close (self);
   }
 }
 
@@ -363,6 +365,18 @@ gboolean
 frdp_display_is_open (FrdpDisplay *display)
 {
   return frdp_session_is_open (display->priv->session);
+}
+
+/**
+ * frdp_display_close:
+ * @display: (transfer none): the RDP display widget
+ *
+ * Request the closing of the RDP session.
+ */
+void
+frdp_display_close (FrdpDisplay *display)
+{
+  frdp_session_close (display->priv->session);
 }
 
 /**
