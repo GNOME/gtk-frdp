@@ -47,7 +47,9 @@ static guint signals[LAST_SIGNAL];
 static gboolean
 frdp_display_is_initialized (FrdpDisplay *self)
 {
-  return self->priv->session != NULL && frdp_display_is_open (self);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+
+  return priv->session != NULL && frdp_display_is_open (self);
 }
 
 static gboolean
@@ -55,6 +57,7 @@ frdp_display_key_press_event (GtkWidget   *widget,
                               GdkEventKey *key)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
   guint16 keycode = key->hardware_keycode;
 
   if (!frdp_display_is_initialized (self))
@@ -62,10 +65,10 @@ frdp_display_key_press_event (GtkWidget   *widget,
 
   switch (key->type) {
     case GDK_KEY_PRESS:
-      frdp_session_send_key (self->priv->session, FRDP_KEY_EVENT_PRESS, keycode);
+      frdp_session_send_key (priv->session, FRDP_KEY_EVENT_PRESS, keycode);
       break;
     case GDK_KEY_RELEASE:
-      frdp_session_send_key (self->priv->session, FRDP_KEY_EVENT_RELEASE, keycode);
+      frdp_session_send_key (priv->session, FRDP_KEY_EVENT_RELEASE, keycode);
       break;
     default:
       g_warn_if_reached ();
@@ -80,11 +83,12 @@ frdp_display_motion_notify_event (GtkWidget      *widget,
                                   GdkEventMotion *event)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
 
   if (!frdp_display_is_initialized (self))
     return TRUE;
 
-  frdp_session_mouse_event (self->priv->session,
+  frdp_session_mouse_event (priv->session,
                             FRDP_MOUSE_EVENT_MOVE,
                             event->x,
                             event->y);
@@ -97,6 +101,7 @@ frdp_display_button_press_event (GtkWidget      *widget,
                                  GdkEventButton *event)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
   guint16 flags = 0;
 
   if (!frdp_display_is_initialized (self))
@@ -118,7 +123,7 @@ frdp_display_button_press_event (GtkWidget      *widget,
   if (event->button == 3)
     flags |= FRDP_MOUSE_EVENT_BUTTON2;
 
-  frdp_session_mouse_event (self->priv->session,
+  frdp_session_mouse_event (priv->session,
                             flags,
                             event->x,
                             event->y);
@@ -131,6 +136,7 @@ frdp_display_scroll_event (GtkWidget      *widget,
                            GdkEventScroll *event)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
   guint16 flags = FRDP_MOUSE_EVENT_WHEEL;
 
   if (!frdp_display_is_initialized (self))
@@ -148,7 +154,7 @@ frdp_display_scroll_event (GtkWidget      *widget,
       return FALSE;
   }
 
-  frdp_session_mouse_event (self->priv->session,
+  frdp_session_mouse_event (priv->session,
                             flags,
                             event->x,
                             event->y);
@@ -201,7 +207,8 @@ frdp_display_get_property (GObject      *object,
                            GParamSpec   *pspec)
 {
   FrdpDisplay *self = FRDP_DISPLAY (object);
-  FrdpSession *session = self->priv->session;
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  FrdpSession *session = priv->session;
   gpointer str_property;
 
   switch (property_id)
@@ -231,7 +238,8 @@ frdp_display_set_property (GObject      *object,
                            GParamSpec   *pspec)
 {
   FrdpDisplay *self = FRDP_DISPLAY (object);
-  FrdpSession *session = self->priv->session;
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  FrdpSession *session = priv->session;
 
   switch (property_id)
     {
@@ -306,7 +314,7 @@ frdp_display_class_init (FrdpDisplayClass *klass)
 static void
 frdp_display_init (FrdpDisplay *self)
 {
-  self->priv = frdp_display_get_instance_private (self);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
 
   gtk_widget_add_events (GTK_WIDGET (self),
                          GDK_POINTER_MOTION_MASK |
@@ -318,7 +326,7 @@ frdp_display_init (FrdpDisplay *self)
 
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 
-  self->priv->session = NULL;
+  priv->session = NULL;
 }
 
 /**
@@ -335,15 +343,16 @@ frdp_display_open_host (FrdpDisplay  *display,
                         const gchar  *host,
                         guint         port)
 {
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
   g_return_if_fail (host != NULL);
 
-  display->priv->session = frdp_session_new (display);
-
-  g_signal_connect (display->priv->session, "rdp-disconnected",
+  priv->session = frdp_session_new (display);
+  g_signal_connect (priv->session, "rdp-disconnected",
                     G_CALLBACK (frdp_display_disconnected),
                     display);
 
-  frdp_session_connect (display->priv->session,
+  frdp_session_connect (priv->session,
                         host,
                         port,
                         NULL, // TODO: Cancellable
@@ -364,7 +373,9 @@ frdp_display_open_host (FrdpDisplay  *display,
 gboolean
 frdp_display_is_open (FrdpDisplay *display)
 {
-  return frdp_session_is_open (display->priv->session);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  return frdp_session_is_open (priv->session);
 }
 
 /**
@@ -376,7 +387,9 @@ frdp_display_is_open (FrdpDisplay *display)
 void
 frdp_display_close (FrdpDisplay *display)
 {
-  frdp_session_close (display->priv->session);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  frdp_session_close (priv->session);
 }
 
 /**
@@ -392,7 +405,9 @@ void
 frdp_display_set_scaling (FrdpDisplay *display,
                           gboolean     scaling)
 {
-  g_object_set (display->priv->session, "scaling", scaling, NULL);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  g_object_set (priv->session, "scaling", scaling, NULL);
 
   if (scaling) {
     gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
