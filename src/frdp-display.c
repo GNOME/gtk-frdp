@@ -39,6 +39,7 @@ enum
 {
   RDP_CONNECTED,
   RDP_DISCONNECTED,
+  RDP_NEEDS_AUTHENTICATION,
   LAST_SIGNAL
 };
 
@@ -309,6 +310,12 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                             G_SIGNAL_RUN_LAST,
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 0);
+
+  signals[RDP_NEEDS_AUTHENTICATION] = g_signal_new ("rdp-needs-authentication",
+                                                    G_TYPE_FROM_CLASS (klass),
+                                                    G_SIGNAL_RUN_LAST,
+                                                    0, NULL, NULL, NULL,
+                                                    G_TYPE_NONE, 0);
 }
 
 static void
@@ -446,6 +453,8 @@ frdp_display_authenticate (FrdpDisplay *self,
                            gchar **domain)
 {
   FrdpDisplayClass *klass =  FRDP_DISPLAY_DISPLAY_GET_CLASS (self);
+
+  g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
 
   return klass->authenticate (self, username, password, domain);
 }
