@@ -175,7 +175,6 @@ frdp_authenticate (freerdp  *freerdp_session,
                    gchar   **domain)
 {
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
-  gboolean result;
 
   return frdp_display_authenticate (FRDP_DISPLAY (self->priv->display),
                                     username,
