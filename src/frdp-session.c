@@ -165,7 +165,7 @@ frdp_certificate_verify (freerdp     *freerdp_session,
                          gboolean     host_mismatch)
 {
   /* TODO */
-  return FALSE;
+  return TRUE;
 }
 
 static gboolean
