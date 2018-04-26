@@ -32,6 +32,8 @@ typedef struct _FrdpDisplayPrivate FrdpDisplayPrivate;
 struct _FrdpDisplayClass
 {
   GtkDrawingAreaClass parent_parent;
+
+  gboolean (*authenticate) (FrdpDisplay *self, gchar **username, gchar **password, gchar **domain);
 };
 
 GtkWidget *frdp_display_new       (void);
@@ -46,5 +48,10 @@ void       frdp_display_close     (FrdpDisplay *display);
 
 void       frdp_display_set_scaling (FrdpDisplay *display,
                                      gboolean     scaling);
+
+gboolean   frdp_display_authenticate (FrdpDisplay *self,
+                                      gchar **username,
+                                      gchar **password,
+                                      gchar **domain);
 
 G_END_DECLS

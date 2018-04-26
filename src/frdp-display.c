@@ -357,7 +357,7 @@ frdp_display_open_host (FrdpDisplay  *display,
                         port,
                         NULL, // TODO: Cancellable
                         frdp_display_open_host_cb,
-                        display);
+                        g_object_ref (display));
 
   g_debug ("Connecting to %s…", host);
 }
@@ -437,4 +437,15 @@ frdp_display_set_scaling (FrdpDisplay *display,
 GtkWidget *frdp_display_new (void)
 {
   return GTK_WIDGET (g_object_new (FRDP_TYPE_DISPLAY, NULL));
+}
+
+gboolean
+frdp_display_authenticate (FrdpDisplay *self,
+                           gchar **username,
+                           gchar **password,
+                           gchar **domain)
+{
+  FrdpDisplayClass *klass =  FRDP_DISPLAY_DISPLAY_GET_CLASS (self);
+
+  return klass->authenticate (self, username, password, domain);
 }

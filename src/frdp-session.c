@@ -174,9 +174,13 @@ frdp_authenticate (freerdp  *freerdp_session,
                    gchar   **password,
                    gchar   **domain)
 {
-  /* TODO: ask for credentials */
+  FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
+  gboolean result;
 
-  return TRUE;
+  return frdp_display_authenticate (FRDP_DISPLAY (self->priv->display),
+                                    username,
+                                    password,
+                                    domain);
 }
 
 static gboolean
@@ -463,6 +467,7 @@ frdp_session_finalize (GObject *object)
 
   if (self->priv->freerdp_session) {
     freerdp_disconnect (self->priv->freerdp_session);
+    freerdp_context_free (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
   }
 
@@ -613,7 +618,6 @@ frdp_session_close (FrdpSession *self)
 
   if (self->priv->freerdp_session != NULL) {
     gdi_free (self->priv->freerdp_session);
-    freerdp_context_free (self->priv->freerdp_session);
 
     self->priv->is_connected = FALSE;
 
