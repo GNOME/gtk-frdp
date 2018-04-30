@@ -333,7 +333,7 @@ frdp_display_init (FrdpDisplay *self)
 
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 
-  priv->session = NULL;
+  priv->session = frdp_session_new (self);
 }
 
 /**
@@ -354,7 +354,6 @@ frdp_display_open_host (FrdpDisplay  *display,
 
   g_return_if_fail (host != NULL);
 
-  priv->session = frdp_session_new (display);
   g_signal_connect (priv->session, "rdp-disconnected",
                     G_CALLBACK (frdp_display_disconnected),
                     display);

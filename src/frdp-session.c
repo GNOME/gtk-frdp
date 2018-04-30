@@ -39,6 +39,11 @@ struct _FrdpSessionPrivate
   guint update_id;
 
   gboolean is_connected;
+
+  gchar *hostname;
+  gchar *username;
+  gchar *password;
+  guint  port;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -115,45 +120,6 @@ frdp_session_draw (GtkWidget *widget,
   cairo_paint (cr);
 
   return TRUE;
-}
-
-static void
-frdp_session_set_hostname (FrdpSession *self,
-                           const gchar *hostname)
-{
-  rdpSettings *settings = self->priv->freerdp_session->settings;
-
-  g_free (settings->ServerHostname);
-  settings->ServerHostname = g_strdup (hostname);
-}
-
-static void
-frdp_session_set_port (FrdpSession *self,
-                       guint        port)
-{
-  rdpSettings *settings = self->priv->freerdp_session->settings;
-
-  settings->ServerPort = port;
-}
-
-static void
-frdp_session_set_username (FrdpSession *self,
-                           const gchar *username)
-{
-  rdpSettings *settings = self->priv->freerdp_session->settings;
-
-  g_free (settings->Username);
-  settings->Username = g_strdup (username);
-}
-
-static void
-frdp_session_set_password (FrdpSession *self,
-                           const gchar *password)
-{
-  rdpSettings *settings = self->priv->freerdp_session->settings;
-
-  g_free (settings->Password);
-  settings->Password = g_strdup (password);
 }
 
 static guint
@@ -365,6 +331,32 @@ update (gpointer user_data)
 }
 
 static void
+frdp_session_init_freerdp (FrdpSession *self)
+{
+  FrdpSessionPrivate *priv = self->priv;
+  rdpSettings *settings;
+
+  /* Setup FreeRDP session */
+  priv->freerdp_session = freerdp_new ();
+  priv->freerdp_session->PreConnect = frdp_pre_connect;
+  priv->freerdp_session->PostConnect = frdp_post_connect;
+  priv->freerdp_session->Authenticate = frdp_authenticate;
+  priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
+
+  priv->freerdp_session->ContextSize = sizeof (frdpContext);
+
+  freerdp_context_new (priv->freerdp_session);
+  ((frdpContext *) priv->freerdp_session->context)->self = self;
+
+  settings = priv->freerdp_session->settings;
+
+  settings->ServerHostname = g_strdup (priv->hostname);
+  settings->ServerPort = priv->port;
+  settings->Username = g_strdup (priv->username);
+  settings->Password = g_strdup (priv->password);
+}
+
+static void
 frdp_session_connect_thread (GTask        *task,
                              gpointer      source_object,
                              gpointer      task_data,
@@ -435,16 +427,19 @@ frdp_session_set_property (GObject      *object,
   switch (property_id)
     {
       case PROP_HOSTNAME:
-        frdp_session_set_hostname (self, g_value_get_string (value));
+        g_free (self->priv->hostname);
+        self->priv->hostname = g_value_dup_string (value);
         break;
       case PROP_PORT:
-        frdp_session_set_port (self, g_value_get_uint (value));
+        self->priv->port = g_value_get_uint (value);
         break;
       case PROP_USERNAME:
-        frdp_session_set_username (self, g_value_get_string (value));
+        g_free (self->priv->username);
+        self->priv->username = g_value_dup_string (value);
         break;
       case PROP_PASSWORD:
-        frdp_session_set_password (self, g_value_get_string (value));
+        g_free (self->priv->password);
+        self->priv->password = g_value_dup_string (value);
         break;
       case PROP_DISPLAY:
         self->priv->display = g_value_get_object (value);
@@ -471,6 +466,10 @@ frdp_session_finalize (GObject *object)
   }
 
   frdp_session_close (self);
+
+  g_clear_pointer (&self->priv->hostname, g_free);
+  g_clear_pointer (&self->priv->username, g_free);
+  g_clear_pointer (&self->priv->password, g_free);
 
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
 }
@@ -565,25 +564,14 @@ frdp_session_connect (FrdpSession         *self,
                       GAsyncReadyCallback  callback,
                       gpointer             user_data)
 {
-  FrdpSessionPrivate *priv = self->priv;
   GTask *task;
 
+  self->priv->hostname = g_strdup (hostname);
+  self->priv->port = port;
+
   if (!self->priv->is_connected) {
-    /* Setup FreeRDP session */
-    priv->freerdp_session = freerdp_new ();
-    priv->freerdp_session->PreConnect = frdp_pre_connect;
-    priv->freerdp_session->PostConnect = frdp_post_connect;
-    priv->freerdp_session->Authenticate = frdp_authenticate;
-    priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
-
-    priv->freerdp_session->ContextSize = sizeof (frdpContext);
-
-    freerdp_context_new (priv->freerdp_session);
-    ((frdpContext *) priv->freerdp_session->context)->self = self;
+    frdp_session_init_freerdp (self);
   }
-
-  frdp_session_set_hostname (self, hostname);
-  frdp_session_set_port (self, port);
 
   task = g_task_new (self, cancellable, callback, user_data);
   g_task_run_in_thread (task, frdp_session_connect_thread);
