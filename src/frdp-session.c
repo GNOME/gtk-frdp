@@ -363,8 +363,23 @@ frdp_session_connect_thread (GTask        *task,
                              GCancellable *cancellable)
 {
   FrdpSession *self = (FrdpSession*) source_object;
+  guint authentication_errors = 0;
 
-  self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
+  frdp_session_init_freerdp (self);
+
+  do {
+    self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
+
+    if (!self->priv->is_connected) {
+      authentication_errors +=
+          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x20009 ||
+          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x2000c ||
+          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x20005;
+
+      freerdp_free (self->priv->freerdp_session);
+      frdp_session_init_freerdp (self);
+    }
+  } while (!self->priv->is_connected && authentication_errors < 3);
 
   if (self->priv->is_connected) {
     g_signal_connect (self->priv->display, "draw",
@@ -375,7 +390,7 @@ frdp_session_connect_thread (GTask        *task,
 
     self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
   } else {
-    freerdp_free (self->priv->freerdp_session);
+    g_idle_add ((GSourceFunc) idle_close, self);
   }
 
   g_task_return_boolean (task, self->priv->is_connected);
@@ -568,10 +583,6 @@ frdp_session_connect (FrdpSession         *self,
 
   self->priv->hostname = g_strdup (hostname);
   self->priv->port = port;
-
-  if (!self->priv->is_connected) {
-    frdp_session_init_freerdp (self);
-  }
 
   task = g_task_new (self, cancellable, callback, user_data);
   g_task_run_in_thread (task, frdp_session_connect_thread);
