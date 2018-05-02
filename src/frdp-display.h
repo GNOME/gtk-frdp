@@ -54,4 +54,6 @@ gboolean   frdp_display_authenticate (FrdpDisplay *self,
                                       gchar **password,
                                       gchar **domain);
 
+GdkPixbuf *frdp_display_get_pixbuf (FrdpDisplay *display);
+
 G_END_DECLS

@@ -457,3 +457,19 @@ frdp_display_authenticate (FrdpDisplay *self,
 
   return klass->authenticate (self, username, password, domain);
 }
+
+/**
+ * frdp_display_get_pixbuf:
+ * @display: (transfer none): the RDP display widget
+ *
+ * Take a screenshot of the display.
+ *
+ * Returns: (transfer full): a #GdkPixbuf with the screenshot image buffer
+ */
+GdkPixbuf *
+frdp_display_get_pixbuf (FrdpDisplay *display)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  return frdp_session_get_pixbuf (priv->session);
+}

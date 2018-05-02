@@ -81,4 +81,6 @@ void         frdp_session_send_key       (FrdpSession          *self,
                                           FrdpKeyEvent          event,
                                           guint16               keycode);
 
+GdkPixbuf   *frdp_session_get_pixbuf     (FrdpSession          *self);
+
 G_END_DECLS

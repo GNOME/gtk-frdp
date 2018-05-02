@@ -707,3 +707,16 @@ frdp_session_send_key (FrdpSession  *self,
 
   input->KeyboardEvent (input, flags, scancode);
 }
+
+GdkPixbuf *
+frdp_session_get_pixbuf (FrdpSession *self)
+{
+  guint width, height;
+
+  width = gtk_widget_get_allocated_width (self->priv->display);
+  height = gtk_widget_get_allocated_height (self->priv->display);
+
+  return gdk_pixbuf_get_from_surface (self->priv->surface,
+                                      0, 0,
+                                      width, height);
+}
