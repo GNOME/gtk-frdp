@@ -360,6 +360,8 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->ServerPort = priv->port;
   settings->Username = g_strdup (priv->username);
   settings->Password = g_strdup (priv->password);
+
+  settings->AllowFontSmoothing = TRUE;
 }
 
 static void
