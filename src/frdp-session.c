@@ -249,6 +249,7 @@ static gboolean
 frdp_post_connect (freerdp *freerdp_session)
 {
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
+  cairo_format_t cairo_format;
   rdpGdi *gdi;
   guint32 color_format;
   gint stride;
@@ -256,14 +257,20 @@ frdp_post_connect (freerdp *freerdp_session)
   switch (frdp_session_get_best_color_depth (self)) {
     case 32:
       color_format = PIXEL_FORMAT_BGRA32;
+      cairo_format = CAIRO_FORMAT_ARGB32;
+      break;
+    case 24:
+      color_format = PIXEL_FORMAT_BGRX32;
+      cairo_format = CAIRO_FORMAT_RGB24;
       break;
     case 16:
     case 15:
       color_format = PIXEL_FORMAT_BGR16;
+      cairo_format = CAIRO_FORMAT_RGB16_565;
       break;
-    case 24:
     default:
       color_format = PIXEL_FORMAT_BGRX32;
+      cairo_format = CAIRO_FORMAT_RGB16_565;
       break;
   }
 
@@ -273,10 +280,10 @@ frdp_post_connect (freerdp *freerdp_session)
   freerdp_session->update->BeginPaint = frdp_begin_paint;
   freerdp_session->update->EndPaint = frdp_end_paint;
 
-  stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, gdi->width);
+  stride = cairo_format_stride_for_width (cairo_format, gdi->width);
   self->priv->surface =
       cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
-                                           CAIRO_FORMAT_RGB24,
+                                           cairo_format,
                                            gdi->width,
                                            gdi->height,
                                            stride);
