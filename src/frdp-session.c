@@ -35,6 +35,8 @@ struct _FrdpSessionPrivate
   cairo_surface_t *surface;
   gboolean scaling;
   double scale;
+  double offset_x;
+  double offset_y;
 
   guint update_id;
 
@@ -82,18 +84,21 @@ frdp_session_configure_event (GtkWidget *widget,
 {
   FrdpSession *self = (FrdpSession*) user_data;
   rdpSettings *settings = self->priv->freerdp_session->settings;
-  gint width, height;
+  double width, height;
 
   if (self->priv->scaling) {
-    width = gtk_widget_get_allocated_width (widget);
-    height = gtk_widget_get_allocated_height (widget);
+    width = (double)gtk_widget_get_allocated_width (widget);
+    height = (double)gtk_widget_get_allocated_height (widget);
 
     if (width < height)
-      self->priv->scale = (double) width / settings->DesktopWidth;
+      self->priv->scale = width / settings->DesktopWidth;
     else
-      self->priv->scale = (double) height / settings->DesktopHeight;
+      self->priv->scale = height / settings->DesktopHeight;
 
     settings->DesktopScaleFactor = self->priv->scale;
+
+    self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
+    self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
   }
 }
 
@@ -114,6 +119,7 @@ frdp_session_draw (GtkWidget *widget,
   FrdpSession *self = (FrdpSession*) user_data;
 
   if (self->priv->scaling) {
+      cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
       cairo_scale (cr, self->priv->scale, self->priv->scale);
   }
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
@@ -212,8 +218,8 @@ frdp_end_paint (rdpContext *context)
   priv = self->priv;
 
   if (priv->scaling) {
-      pos_x = x * priv->scale;
-      pos_y = y * priv->scale;
+      pos_x = self->priv->offset_x + x * priv->scale;
+      pos_y = self->priv->offset_y + y * priv->scale;
       gtk_widget_queue_draw_area (priv->display,
                                   floor (pos_x),
                                   floor (pos_y),
@@ -657,8 +663,8 @@ frdp_session_mouse_event (FrdpSession          *self,
   input = priv->freerdp_session->input;
 
   if (priv->scaling) {
-    x = x / priv->scale;
-    y = y / priv->scale;
+    x = (x - priv->offset_x) / priv->scale;
+    y = (y - priv->offset_y) / priv->scale;
   }
 
   if (flags != 0) {
