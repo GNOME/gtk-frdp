@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
+#include <gdk/gdk.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
 #include <math.h>
@@ -76,6 +77,18 @@ struct frdp_context
   FrdpSession *self;
 };
 typedef struct frdp_context frdpContext;
+
+static guint32
+frdp_session_get_best_color_depth (FrdpSession *self)
+{
+  GdkScreen *display;
+  GdkVisual *visual;
+
+  display = gdk_screen_get_default ();
+  visual = gdk_screen_get_rgba_visual (display);
+
+  return gdk_visual_get_depth (visual);
+}
 
 static void
 frdp_session_configure_event (GtkWidget *widget,
@@ -237,9 +250,24 @@ frdp_post_connect (freerdp *freerdp_session)
 {
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
   rdpGdi *gdi;
+  guint32 color_format;
   gint stride;
 
-  gdi_init (freerdp_session, PIXEL_FORMAT_BGRA32);
+  switch (frdp_session_get_best_color_depth (self)) {
+    case 32:
+      color_format = PIXEL_FORMAT_BGRA32;
+      break;
+    case 16:
+    case 15:
+      color_format = PIXEL_FORMAT_BGR16;
+      break;
+    case 24:
+    default:
+      color_format = PIXEL_FORMAT_BGRX32;
+      break;
+  }
+
+  gdi_init (freerdp_session, color_format);
   gdi = freerdp_session->context->gdi;
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
