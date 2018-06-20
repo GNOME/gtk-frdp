@@ -91,5 +91,5 @@ pkg.generate(
       version: meson.project_version(),
       subdirs: gtk_frdp_header_subdir,
      requires: 'glib-2.0',
-  install_dir: join_paths (libdir, 'pkgconfig')
+  install_dir: join_paths(get_option('libdir'), 'pkgconfig')
 )
