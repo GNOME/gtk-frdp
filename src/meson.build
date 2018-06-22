@@ -23,7 +23,7 @@ version_conf.set('MINOR_VERSION', MINOR_VERSION)
 version_conf.set('MICRO_VERSION', MICRO_VERSION)
 
 gtk_frdp_header_subdir = join_paths(package_subdir, 'gtk-frdp')
-gtk_frdp_header_dir = join_paths(get_option('includedir'), gtk_frdp_header_subdir)
+gtk_frdp_header_dir = join_paths(package_subdir, get_option('includedir'), gtk_frdp_header_subdir)
 
 configure_file(
   input: 'gtk-frdp-version.h.in',
@@ -90,5 +90,5 @@ pkg.generate(
       version: meson.project_version(),
       subdirs: gtk_frdp_header_subdir,
      requires: 'glib-2.0',
-  install_dir: join_paths(get_option('libdir'), 'pkgconfig')
+  install_dir: join_paths(libdir, 'pkgconfig')
 )
