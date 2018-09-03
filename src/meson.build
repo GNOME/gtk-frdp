@@ -23,7 +23,7 @@ version_conf.set('MINOR_VERSION', MINOR_VERSION)
 version_conf.set('MICRO_VERSION', MICRO_VERSION)
 
 gtk_frdp_header_subdir = join_paths(package_subdir, 'gtk-frdp')
-gtk_frdp_header_dir = join_paths(package_subdir, get_option('includedir'), gtk_frdp_header_subdir)
+gtk_frdp_header_dir = join_paths(get_option('includedir'), gtk_frdp_header_subdir)
 
 configure_file(
   input: 'gtk-frdp-version.h.in',
@@ -47,6 +47,7 @@ gtk_frdp_lib = shared_library('gtk-frdp-' + api_version,
   gtk_frdp_sources,
   dependencies: gtk_frdp_deps,
   install: true,
+  install_dir: libdir
 )
 
 gtk_frdp_dep = declare_dependency(
@@ -56,7 +57,7 @@ gtk_frdp_dep = declare_dependency(
   include_directories: include_directories('.'),
 )
 
-install_headers(gtk_frdp_headers, subdir: 'gtk-frdp')
+install_headers(gtk_frdp_headers, subdir: gtk_frdp_header_subdir)
 
 gtk_frdp_gir = gnome.generate_gir(gtk_frdp_lib,
   sources: gtk_frdp_sources + gtk_frdp_headers,
