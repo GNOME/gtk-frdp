@@ -221,7 +221,7 @@ frdp_end_paint (rdpContext *context)
   gint pos_x, pos_y;
 
   if (gdi->primary->hdc->hwnd->invalid->null)
-    return FALSE;
+    return TRUE;
 
   x = gdi->primary->hdc->hwnd->invalid->x;
   y = gdi->primary->hdc->hwnd->invalid->y;
