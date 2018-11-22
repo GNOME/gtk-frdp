@@ -37,6 +37,7 @@ cc = meson.get_compiler('c')
 vala = meson.get_compiler('vala')
 
 gtk_frdp_deps = [
+  dependency('winpr2'),
   dependency('freerdp2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
