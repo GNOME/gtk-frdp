@@ -40,13 +40,16 @@ struct _FrdpSession
 
 typedef enum
 {
-  FRDP_MOUSE_EVENT_MOVE           = 1 << 0,
-  FRDP_MOUSE_EVENT_DOWN           = 1 << 1,
-  FRDP_MOUSE_EVENT_WHEEL          = 1 << 2,
-  FRDP_MOUSE_EVENT_WHEEL_NEGATIVE = 1 << 3,
-  FRDP_MOUSE_EVENT_BUTTON1        = 1 << 4,
-  FRDP_MOUSE_EVENT_BUTTON2        = 1 << 5,
-  FRDP_MOUSE_EVENT_BUTTON3        = 1 << 6,
+  FRDP_MOUSE_EVENT_MOVE            = 1 << 0,
+  FRDP_MOUSE_EVENT_DOWN            = 1 << 1,
+  FRDP_MOUSE_EVENT_WHEEL           = 1 << 2,
+  FRDP_MOUSE_EVENT_WHEEL_NEGATIVE  = 1 << 3,
+  FRDP_MOUSE_EVENT_BUTTON1         = 1 << 4,
+  FRDP_MOUSE_EVENT_BUTTON2         = 1 << 5,
+  FRDP_MOUSE_EVENT_BUTTON3         = 1 << 6,
+  FRDP_MOUSE_EVENT_BUTTON4         = 1 << 7,
+  FRDP_MOUSE_EVENT_BUTTON5         = 1 << 8,
+  FRDP_MOUSE_EVENT_HWHEEL          = 1 << 9,
 } FrdpMouseEvent;
 
 typedef enum
