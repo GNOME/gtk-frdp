@@ -28,6 +28,13 @@
 
 #define SELECT_TIMEOUT 50
 
+struct frdp_pointer
+{
+	rdpPointer pointer;
+	cairo_surface_t *data;
+};
+typedef struct frdp_pointer frdpPointer;
+
 struct _FrdpSessionPrivate
 {
   freerdp      *freerdp_session;
@@ -47,6 +54,10 @@ struct _FrdpSessionPrivate
   gchar *username;
   gchar *password;
   guint  port;
+
+  gboolean show_cursor;
+  gboolean cursor_null;
+  frdpPointer *cursor;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -77,6 +88,150 @@ struct frdp_context
   FrdpSession *self;
 };
 typedef struct frdp_context frdpContext;
+
+static void
+frdp_session_update_mouse_pointer (FrdpSession  *self)
+{
+  FrdpSessionPrivate *priv = self->priv;
+  GdkCursor *cursor;
+  GdkDisplay *display;
+  GdkWindow  *window;
+
+  window = gtk_widget_get_parent_window(priv->display);
+  display = gtk_widget_get_display(priv->display);
+  if (priv->show_cursor && priv->cursor_null)
+    cursor = gdk_cursor_new_from_name (display, "help");
+  if (!priv->show_cursor || !priv->cursor)
+    cursor = gdk_cursor_new_from_name (display, "default");
+  else {
+    cursor =  gdk_cursor_new_from_surface (display, priv->cursor->data,
+                                           priv->cursor->pointer.xPos,
+                                           priv->cursor->pointer.yPos);
+  }
+
+  gdk_window_set_cursor (window, cursor);
+}
+
+static BOOL
+frdp_Pointer_New(rdpContext* context, rdpPointer* pointer)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+  frdpPointer *fpointer = (frdpPointer*) pointer;
+  int stride;
+	unsigned char *data;
+  cairo_surface_t *surface;
+
+	if (!fcontext || !fpointer)
+		return FALSE;
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24, pointer->width,
+                                        pointer->height);
+  if (!surface) {
+    return FALSE;
+  }
+
+  data = cairo_image_surface_get_data (surface);
+  if (!data) {
+    goto fail;
+  }
+
+  stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, pointer->width);
+	if (!freerdp_image_copy_from_pointer_data (data, PIXEL_FORMAT_RGB24,
+                                             stride, 0, 0, pointer->width,
+                                             pointer->height,
+                                             pointer->xorMaskData,
+                                             pointer->lengthXorMask,
+                                             pointer->andMaskData,
+                                             pointer->lengthAndMask,
+                                             pointer->xorBpp,
+                                             &context->gdi->palette))
+    goto fail;
+
+  fpointer->data = surface;
+  return TRUE;
+fail:
+  if (surface)
+    cairo_surface_destroy (surface);
+	return FALSE;
+}
+
+static void
+frdp_Pointer_Free (rdpContext* context, rdpPointer* pointer)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+  frdpPointer *fpointer = (frdpPointer*) pointer;
+
+  if (fpointer && fpointer->data) {
+    cairo_surface_destroy (fpointer->data);
+    fpointer->data = NULL;
+  }
+}
+
+static BOOL
+frdp_Pointer_Set (rdpContext* context,
+                  const rdpPointer* pointer)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+  frdpPointer *fpointer = (frdpPointer*) pointer;
+  FrdpSessionPrivate *priv = fcontext->self->priv;
+
+  priv->cursor = fpointer;
+  priv->cursor_null = FALSE;
+
+  frdp_session_update_mouse_pointer (fcontext->self);
+	return TRUE;
+}
+
+static BOOL
+frdp_Pointer_SetNull (rdpContext* context)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+  FrdpSessionPrivate *priv = fcontext->self->priv;
+  unsigned char *data;
+  cairo_surface_t *surface;
+
+  priv->cursor = NULL;
+  priv->cursor_null = TRUE;
+
+  /* TODO: Set invisible cursor */
+  frdp_session_update_mouse_pointer (fcontext->self);
+	return TRUE;
+}
+
+static BOOL
+frdp_Pointer_SetDefault (rdpContext* context)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+   FrdpSessionPrivate *priv = fcontext->self->priv;
+
+  priv->cursor = NULL;
+  priv->cursor_null = FALSE;
+  frdp_session_update_mouse_pointer (fcontext->self);
+	return TRUE;
+}
+
+static BOOL
+frdp_Pointer_SetPosition (rdpContext* context, UINT32 x, UINT32 y)
+{
+  frdpContext *fcontext = (frdpContext*) context;
+  /* TODO */
+	return TRUE;
+}
+
+static void
+frdp_register_pointer (rdpGraphics* graphics)
+{
+	rdpPointer pointer;
+
+	pointer.size = sizeof(frdpPointer);
+	pointer.New = frdp_Pointer_New;
+	pointer.Free = frdp_Pointer_Free;
+	pointer.Set = frdp_Pointer_Set;
+	pointer.SetNull = frdp_Pointer_SetNull;
+	pointer.SetDefault = frdp_Pointer_SetDefault;
+	pointer.SetPosition = frdp_Pointer_SetPosition;
+	graphics_register_pointer(graphics, &pointer);
+}
 
 static guint32
 frdp_session_get_best_color_depth (FrdpSession *self)
@@ -277,6 +432,8 @@ frdp_post_connect (freerdp *freerdp_session)
   gdi_init (freerdp_session, color_format);
   gdi = freerdp_session->context->gdi;
 
+  frdp_register_pointer (freerdp_session->context->graphics);
+  pointer_cache_register_callbacks(freerdp_session->context->update);
   freerdp_session->update->BeginPaint = frdp_begin_paint;
   freerdp_session->update->EndPaint = frdp_end_paint;
 
@@ -710,6 +867,16 @@ frdp_session_mouse_event (FrdpSession          *self,
 
     input->MouseEvent (input, flags, x, y);
   }
+}
+
+void
+frdp_session_mouse_pointer  (FrdpSession          *self,
+                             gboolean              enter)
+{
+  FrdpSessionPrivate *priv = self->priv;
+
+  priv->show_cursor = enter;
+  frdp_session_update_mouse_pointer (self);
 }
 
 static unsigned char keycode_scancodes[] = {

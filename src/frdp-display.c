@@ -163,6 +163,26 @@ frdp_display_scroll_event (GtkWidget      *widget,
   return TRUE;
 }
 
+static gboolean
+frdp_enter_notify_event (GtkWidget	       *widget,
+                         GdkEventCrossing  *event)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  frdp_session_mouse_pointer(priv->session, TRUE);
+  return TRUE;
+}
+
+static gboolean
+frdp_leave_notify_event (GtkWidget	       *widget,
+                         GdkEventCrossing  *event)
+{
+  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  frdp_session_mouse_pointer(priv->session, FALSE);
+  return TRUE;
+}
+
 static void
 frdp_display_disconnected (GObject  *source_object,
                            gpointer  user_data)
@@ -274,6 +294,8 @@ frdp_display_class_init (FrdpDisplayClass *klass)
   widget_class->button_press_event = frdp_display_button_press_event;
   widget_class->button_release_event = frdp_display_button_press_event;
   widget_class->scroll_event = frdp_display_scroll_event;
+  widget_class->enter_notify_event = frdp_enter_notify_event;
+  widget_class->leave_notify_event = frdp_leave_notify_event;
 
   g_object_class_install_property (gobject_class,
                                    PROP_USERNAME,
@@ -329,7 +351,9 @@ frdp_display_init (FrdpDisplay *self)
                          GDK_BUTTON_RELEASE_MASK |
                          GDK_SCROLL_MASK |
                          GDK_SMOOTH_SCROLL_MASK |
-                         GDK_KEY_PRESS_MASK);
+                         GDK_KEY_PRESS_MASK |
+                         GDK_ENTER_NOTIFY_MASK |
+                         GDK_LEAVE_NOTIFY_MASK);
 
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 
