@@ -310,54 +310,28 @@ idle_close (gpointer user_data)
 static gboolean
 update (gpointer user_data)
 {
+  DWORD status;
+  HANDLE handles[64];
+  DWORD usedHandles;
   FrdpSessionPrivate *priv;
-  struct timeval timeout;
   FrdpSession *self = (FrdpSession*) user_data;
-  fd_set rfds_set, wfds_set;
-  void *rfds[32], *wfds[32];
-  gint rcount = 0, wcount = 0;
-  gint fds, max_fds = 0;
-  gint result;
-  gint idx;
-
-  memset (rfds, 0, sizeof (rfds));
-  memset (wfds, 0, sizeof (wfds));
 
   priv = self->priv;
 
-  if (!freerdp_get_fds (priv->freerdp_session, rfds, &rcount, wfds, &wcount)) {
-      g_warning ("Failed to get FreeRDP file descriptor");
+  usedHandles = freerdp_get_event_handles (priv->freerdp_session->context,
+                                           handles, ARRAYSIZE(handles));
+  if (usedHandles == 0) {
+      g_warning ("Failed to get FreeRDP event handle");
       return FALSE;
   }
 
-  FD_ZERO (&rfds_set);
-  FD_ZERO (&wfds_set);
-
-  for (idx = 0; idx < rcount; idx++) {
-    fds = (int)(long) (rfds[idx]);
-
-    if (fds > max_fds)
-      max_fds = fds;
-
-    FD_SET (fds, &rfds_set);
-  }
-
-  if (max_fds == 0)
+  status = WaitForMultipleObjects (usedHandles, handles, FALSE, SELECT_TIMEOUT);
+  if (status == WAIT_TIMEOUT)
+    return TRUE;
+  if (status == WAIT_FAILED)
     return FALSE;
 
-  timeout.tv_sec = 0;
-  timeout.tv_usec = SELECT_TIMEOUT;
-
-  result = select (max_fds + 1, &rfds_set, NULL, NULL, &timeout);
-  if (result == -1) {
-    if (!((errno == EAGAIN) || (errno == EWOULDBLOCK) ||
-          (errno == EINPROGRESS) || (errno == EINTR))) {
-      g_warning ("update: select failed");
-      return FALSE;
-    }
-  }
-
-  if (!freerdp_check_fds (priv->freerdp_session)) {
+  if (!freerdp_check_event_handles (priv->freerdp_session->context)) {
       g_warning ("Failed to check FreeRDP file descriptor");
       return FALSE;
   }
