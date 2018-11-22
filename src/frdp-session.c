@@ -675,6 +675,7 @@ frdp_session_mouse_event (FrdpSession          *self,
   FrdpSessionPrivate *priv = self->priv;
   rdpInput *input;
   guint16 flags = 0;
+  guint16 xflags = 0;
 
   g_return_if_fail (priv->freerdp_session != NULL);
 
@@ -689,6 +690,13 @@ frdp_session_mouse_event (FrdpSession          *self,
     else
       flags |= 0x0078;
   }
+  if (event & FRDP_MOUSE_EVENT_HWHEEL) {
+    flags |= PTR_FLAGS_HWHEEL;
+    if (event & FRDP_MOUSE_EVENT_WHEEL_NEGATIVE)
+      flags |= PTR_FLAGS_WHEEL_NEGATIVE | 0x0088;
+    else
+      flags |= 0x0078;
+  }
 
   if (event & FRDP_MOUSE_EVENT_BUTTON1)
     flags |= PTR_FLAGS_BUTTON1;
@@ -696,6 +704,10 @@ frdp_session_mouse_event (FrdpSession          *self,
     flags |= PTR_FLAGS_BUTTON2;
   if (event & FRDP_MOUSE_EVENT_BUTTON3)
     flags |= PTR_FLAGS_BUTTON3;
+  if (event & FRDP_MOUSE_EVENT_BUTTON4)
+    xflags |=  PTR_XFLAGS_BUTTON1;
+  if (event & FRDP_MOUSE_EVENT_BUTTON5)
+    xflags |=  PTR_XFLAGS_BUTTON2;
 
   input = priv->freerdp_session->input;
 
@@ -704,11 +716,14 @@ frdp_session_mouse_event (FrdpSession          *self,
     y = (y - priv->offset_y) / priv->scale;
   }
 
-  if (flags != 0) {
-    x = x < 0.0 ? 0.0 : x;
-    y = y < 0.0 ? 0.0 : y;
-
-    input->MouseEvent (input, flags, x, y);
+  x = x < 0.0 ? 0.0 : x;
+  y = y < 0.0 ? 0.0 : y;
+  if (xflags != 0) {
+    if (event & FRDP_MOUSE_EVENT_DOWN)
+        xflags |=  PTR_XFLAGS_DOWN;
+    freerdp_input_send_extended_mouse_event(input, xflags, x, y);
+  } else if (flags != 0) {
+    freerdp_input_send_mouse_event (input, flags, x, y);
   }
 }
 

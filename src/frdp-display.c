@@ -123,6 +123,10 @@ frdp_display_button_press_event (GtkWidget      *widget,
     flags |= FRDP_MOUSE_EVENT_BUTTON3;
   if (event->button == 3)
     flags |= FRDP_MOUSE_EVENT_BUTTON2;
+  if (event->button == 4)
+    flags |= FRDP_MOUSE_EVENT_BUTTON4;
+  if (event->button == 5)
+    flags |= FRDP_MOUSE_EVENT_BUTTON5;
 
   frdp_session_mouse_event (priv->session,
                             flags,
@@ -138,16 +142,23 @@ frdp_display_scroll_event (GtkWidget      *widget,
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-  guint16 flags = FRDP_MOUSE_EVENT_WHEEL;
+  guint16 flags;
 
   if (!frdp_display_is_initialized (self))
     return TRUE;
 
   switch (event->direction) {
     case GDK_SCROLL_UP:
+      flags = FRDP_MOUSE_EVENT_WHEEL;
       break;
     case GDK_SCROLL_DOWN:
-      flags |= FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      flags = FRDP_MOUSE_EVENT_WHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      break;
+    case GDK_SCROLL_LEFT:
+      flags = FRDP_MOUSE_EVENT_HWHEEL;
+      break;
+    case GDK_SCROLL_RIGHT:
+      flags = FRDP_MOUSE_EVENT_HWHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
       break;
     case GDK_SCROLL_SMOOTH:
       g_debug ("scroll smooth unhandled");
