@@ -117,12 +117,25 @@ frdp_display_button_press_event (GtkWidget      *widget,
 
   if (event->type == GDK_BUTTON_PRESS)
     flags |= FRDP_MOUSE_EVENT_DOWN;
-  if (event->button == 1)
+  switch(event->button) {
+  case GDK_BUTTON_PRIMARY:
     flags |= FRDP_MOUSE_EVENT_BUTTON1;
-  if (event->button == 2)
+    break;
+  case GDK_BUTTON_MIDDLE:
     flags |= FRDP_MOUSE_EVENT_BUTTON3;
-  if (event->button == 3)
+    break;
+  case GDK_BUTTON_SECONDARY:
     flags |= FRDP_MOUSE_EVENT_BUTTON2;
+    break;
+  case 8:
+    flags |= FRDP_MOUSE_EVENT_BUTTON4;
+    break;
+  case 9:
+    flags |= FRDP_MOUSE_EVENT_BUTTON5;
+    break;
+  default:
+    return FALSE;
+  }
 
   frdp_session_mouse_event (priv->session,
                             flags,
@@ -145,12 +158,35 @@ frdp_display_scroll_event (GtkWidget      *widget,
 
   switch (event->direction) {
     case GDK_SCROLL_UP:
+      flags = FRDP_MOUSE_EVENT_WHEEL;
       break;
     case GDK_SCROLL_DOWN:
-      flags |= FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      flags = FRDP_MOUSE_EVENT_WHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      break;
+    case GDK_SCROLL_LEFT:
+      flags = FRDP_MOUSE_EVENT_HWHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+      break;
+    case GDK_SCROLL_RIGHT:
+      flags = FRDP_MOUSE_EVENT_HWHEEL;
       break;
     case GDK_SCROLL_SMOOTH:
+    /* Calculate delta and decide which event we have
+     * a delta X means horizontal, a delta Y means vertical scroll.
+     * Fixes https://bugzilla.gnome.org/show_bug.cgi?id=675959
+     */
+    if (event->delta_x > 0.5)
+      flags = FRDP_MOUSE_EVENT_HWHEEL;
+    else if (event->delta_x < -0.5)
+      flags = FRDP_MOUSE_EVENT_HWHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+    else if (event->delta_y > 0.5)
+      flags = FRDP_MOUSE_EVENT_WHEEL;
+    else if (event->delta_y < -0.5)
+      flags = FRDP_MOUSE_EVENT_WHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
+    else {
       g_debug ("scroll smooth unhandled");
+      return FALSE;
+    }
+    break;
     default:
       return FALSE;
   }
