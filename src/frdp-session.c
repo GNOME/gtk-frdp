@@ -161,10 +161,21 @@ frdp_Pointer_New(rdpContext* context, rdpPointer* pointer)
 	if (!fcontext || !fpointer)
 		return FALSE;
 
-  surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24, pointer->width,
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, pointer->width,
                                         pointer->height);
   if (!surface) {
     return FALSE;
+  }
+
+  { /* FreeRDP BUG https://github.com/FreeRDP/FreeRDP/issues/5061
+     * the function freerdp_image_copy_from_pointer_data
+     * does not initialize the buffer which results in broken alpha data. */
+    cairo_t* cairo = cairo_create (surface);
+
+    cairo_set_source_rgba (cairo, 0.0, 0.0, 0.0, 1.0);
+    cairo_fill (cairo);
+    cairo_paint (cairo);
+    cairo_destroy (cairo);
   }
 
   data = cairo_image_surface_get_data (surface);
@@ -172,9 +183,8 @@ frdp_Pointer_New(rdpContext* context, rdpPointer* pointer)
     goto fail;
   }
 
-  stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, pointer->width);
-
-	if (!freerdp_image_copy_from_pointer_data (data, PIXEL_FORMAT_RGB24,
+  stride = cairo_format_stride_for_width (CAIRO_FORMAT_ARGB32, pointer->width);
+	if (!freerdp_image_copy_from_pointer_data (data, PIXEL_FORMAT_BGRA32,
                                              stride, 0, 0, pointer->width,
                                              pointer->height,
                                              pointer->xorMaskData,
