@@ -99,14 +99,51 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
 
   window = gtk_widget_get_parent_window(priv->display);
   display = gtk_widget_get_display(priv->display);
-  if (priv->show_cursor && priv->cursor_null)
-    cursor = gdk_cursor_new_from_name (display, "help");
-  if (!priv->show_cursor || !priv->cursor)
+  if (priv->show_cursor && priv->cursor_null) {
+    cairo_surface_t *surface;
+    cairo_t *cairo;
+
+    /* Create a 1x1 image with transparent color */
+    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 1, 1);
+    cairo = cairo_create (surface);
+    cairo_set_source_rgba (cairo, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_line_width(cairo, 1);
+    cairo_rectangle(cairo, 0, 0, 1, 1);
+    cairo_fill (cairo);
+
+    cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0);
+    cairo_surface_destroy (surface);
+    cairo_destroy (cairo);
+    cairo_surface_destroy (surface);
+  } else if (!priv->show_cursor || !priv->cursor)
+      /* No cursor set or none to show */
     cursor = gdk_cursor_new_from_name (display, "default");
   else {
-    cursor =  gdk_cursor_new_from_surface (display, priv->cursor->data,
-                                           priv->cursor->pointer.xPos,
-                                           priv->cursor->pointer.yPos);
+    rdpPointer *pointer = &priv->cursor->pointer;
+    double scale = self->priv->scale;
+    double x = priv->cursor->pointer.xPos * scale;
+    double y = priv->cursor->pointer.yPos * scale;
+    double w = pointer->width * scale;
+    double h = pointer->height * scale;
+    cairo_surface_t *surface;
+    cairo_t *cairo;
+
+    if (!self->priv->scaling) {
+      scale = 1.0;
+    }
+
+    /* Scale the source image according to current settings. */
+    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
+    cairo = cairo_create (surface);
+
+    cairo_scale(cairo, scale, scale);
+    cairo_set_source_surface (cairo, priv->cursor->data, 0, 0);
+    cairo_paint (cairo);
+
+    cairo_fill (cairo);
+    cursor =  gdk_cursor_new_from_surface (display, surface, x, y);
+    cairo_surface_destroy (surface);
+    cairo_destroy (cairo);
   }
 
   gdk_window_set_cursor (window, cursor);
@@ -136,6 +173,7 @@ frdp_Pointer_New(rdpContext* context, rdpPointer* pointer)
   }
 
   stride = cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, pointer->width);
+
 	if (!freerdp_image_copy_from_pointer_data (data, PIXEL_FORMAT_RGB24,
                                              stride, 0, 0, pointer->width,
                                              pointer->height,
@@ -193,7 +231,6 @@ frdp_Pointer_SetNull (rdpContext* context)
   priv->cursor = NULL;
   priv->cursor_null = TRUE;
 
-  /* TODO: Set invisible cursor */
   frdp_session_update_mouse_pointer (fcontext->self);
 	return TRUE;
 }
@@ -268,6 +305,8 @@ frdp_session_configure_event (GtkWidget *widget,
     self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
     self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
   }
+
+  frdp_session_update_mouse_pointer (self);
 }
 
 static void
