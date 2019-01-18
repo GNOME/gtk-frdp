@@ -2,12 +2,15 @@ api_version = '0.1'
 
 gtk_frdp_sources = [
   'frdp-display.c',
+  'frdp-channels.c',
   'frdp-session.c',
 ]
 
 gtk_frdp_headers = [
   'frdp-display.h',
+  'frdp-channels.h',
   'frdp-session.h',
+  'frdp-context.h',
   'gtk-frdp.h',
 ]
 
@@ -39,6 +42,7 @@ vala = meson.get_compiler('vala')
 gtk_frdp_deps = [
   dependency('winpr2'),
   dependency('freerdp2'),
+  dependency('freerdp-client2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
   cc.find_library('m'),
