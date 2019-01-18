@@ -19,12 +19,15 @@
 #include <errno.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
+#include <freerdp/client/channels.h>
 #include <gdk/gdk.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
 #include <math.h>
 
 #include "frdp-session.h"
+#include "frdp-context.h"
+#include "frdp-channels.h"
 
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
@@ -82,13 +85,6 @@ enum
 };
 
 static guint signals[LAST_SIGNAL];
-
-struct frdp_context
-{
-  rdpContext context;
-  FrdpSession *self;
-};
-typedef struct frdp_context frdpContext;
 
 static void
 frdp_session_update_mouse_pointer (FrdpSession  *self)
@@ -388,6 +384,43 @@ frdp_authenticate (freerdp  *freerdp_session,
 static gboolean
 frdp_pre_connect (freerdp *freerdp_session)
 {
+  rdpSettings *settings = freerdp_session->settings;
+  rdpContext *context = freerdp_session->context;
+
+  settings->OrderSupport[NEG_DSTBLT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_PATBLT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_SCRBLT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_OPAQUE_RECT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_DRAWNINEGRID_INDEX] = FALSE;
+  settings->OrderSupport[NEG_MULTIDSTBLT_INDEX] = FALSE;
+  settings->OrderSupport[NEG_MULTIPATBLT_INDEX] = FALSE;
+  settings->OrderSupport[NEG_MULTISCRBLT_INDEX] = FALSE;
+  settings->OrderSupport[NEG_MULTIOPAQUERECT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_MULTI_DRAWNINEGRID_INDEX] = FALSE;
+  settings->OrderSupport[NEG_LINETO_INDEX] = TRUE;
+  settings->OrderSupport[NEG_POLYLINE_INDEX] = TRUE;
+  settings->OrderSupport[NEG_MEMBLT_INDEX] = TRUE;
+  settings->OrderSupport[NEG_MEM3BLT_INDEX] = FALSE;
+  settings->OrderSupport[NEG_MEMBLT_V2_INDEX] = TRUE;
+  settings->OrderSupport[NEG_MEM3BLT_V2_INDEX] = FALSE;
+  settings->OrderSupport[NEG_SAVEBITMAP_INDEX] = FALSE;
+  settings->OrderSupport[NEG_GLYPH_INDEX_INDEX] = TRUE;
+  settings->OrderSupport[NEG_FAST_INDEX_INDEX] = TRUE;
+  settings->OrderSupport[NEG_FAST_GLYPH_INDEX] = FALSE;
+  settings->OrderSupport[NEG_POLYGON_SC_INDEX] = FALSE;
+  settings->OrderSupport[NEG_POLYGON_CB_INDEX] = FALSE;
+  settings->OrderSupport[NEG_ELLIPSE_SC_INDEX] = FALSE;
+  settings->OrderSupport[NEG_ELLIPSE_CB_INDEX] = FALSE;
+
+  PubSub_SubscribeChannelConnected(context->pubSub,
+	                                 frdp_OnChannelConnectedEventHandler);
+	PubSub_SubscribeChannelDisconnected(context->pubSub,
+	                                    frdp_OnChannelDisconnectedEventHandler);
+
+  if (!freerdp_client_load_addins(context->channels,
+	                                settings))
+		return FALSE;
+
   return TRUE;
 }
 
@@ -439,12 +472,17 @@ frdp_end_paint (rdpContext *context)
 static gboolean
 frdp_post_connect (freerdp *freerdp_session)
 {
+  rdpSettings *settings;
+  rdpContext *context;
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
   cairo_format_t cairo_format;
   rdpGdi *gdi;
   guint32 color_format;
   gint stride;
+  ResizeWindowEventArgs e;
 
+  context = freerdp_session->context;
+  settings = context->settings;
   switch (frdp_session_get_best_color_depth (self)) {
     case 32:
       color_format = PIXEL_FORMAT_BGRA32;
@@ -487,7 +525,27 @@ frdp_post_connect (freerdp *freerdp_session)
                               gdi->width,
                               gdi->height);
 
+  EventArgsInit(&e, "frdp");
+	e.width = settings->DesktopWidth;
+	e.height = settings->DesktopHeight;
+	PubSub_OnResizeWindow(context->pubSub, freerdp_session->context, &e);
+
   return TRUE;
+}
+
+static void frdp_post_disconnect(freerdp* instance)
+{
+	rdpContext* context;
+
+	if (!instance || !instance->context)
+		return;
+
+	context = instance->context;
+	PubSub_UnsubscribeChannelConnected(context->pubSub,
+	                                   frdp_OnChannelConnectedEventHandler);
+	PubSub_UnsubscribeChannelDisconnected(context->pubSub,
+	                                      frdp_OnChannelDisconnectedEventHandler);
+	gdi_free(instance);
 }
 
 static gboolean
@@ -548,6 +606,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   priv->freerdp_session = freerdp_new ();
   priv->freerdp_session->PreConnect = frdp_pre_connect;
   priv->freerdp_session->PostConnect = frdp_post_connect;
+  priv->freerdp_session->PostDisconnect = frdp_post_disconnect;
   priv->freerdp_session->Authenticate = frdp_authenticate;
   priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
   priv->freerdp_session->VerifyChangedCertificate = frdp_changed_certificate_verify;
@@ -845,8 +904,6 @@ frdp_session_close (FrdpSession *self)
   }
 
   if (self->priv->freerdp_session != NULL) {
-    gdi_free (self->priv->freerdp_session);
-
     self->priv->is_connected = FALSE;
 
     g_debug ("Closing RDP session");
