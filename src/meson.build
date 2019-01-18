@@ -2,12 +2,15 @@ api_version = '0.1'
 
 gtk_frdp_sources = [
   'frdp-display.c',
+  'frdp-channels.c',
   'frdp-session.c',
 ]
 
 gtk_frdp_headers = [
   'frdp-display.h',
+  'frdp-channels.h',
   'frdp-session.h',
+  'frdp-context.h',
   'gtk-frdp.h',
 ]
 
@@ -40,7 +43,7 @@ gtk_frdp_deps = [
   # The 2.0.0-rc4 version is needed at least, but there is no easy way to detect this.
   dependency('winpr2', version: '>= 2.0.0'),
   dependency('freerdp2', version: '>= 2.0.0'),
-
+  dependency('freerdp-client2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
   cc.find_library('m'),
