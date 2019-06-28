@@ -88,5 +88,12 @@ void         frdp_session_send_key       (FrdpSession          *self,
                                           guint16               keycode);
 
 GdkPixbuf   *frdp_session_get_pixbuf     (FrdpSession          *self);
+/*FreeRDP fatal error codes*/
+typedef enum {
+ FRDP_ERRCONNECT_CONNECT_CANCELLED = 0x2000B,
+ FRDP_ERRCONNECT_AUTHENTICATION_FAILED = 0x20009,
+ FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED = 0x2000c,
+
+} FrdpErrConnect;
 
 G_END_DECLS
