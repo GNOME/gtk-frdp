@@ -85,5 +85,14 @@ void         frdp_session_send_key       (FrdpSession          *self,
                                           guint16               keycode);
 
 GdkPixbuf   *frdp_session_get_pixbuf     (FrdpSession          *self);
+/*FreeRDP fatal error codes*/
+gint *FRDP_ERRCONNECT_CONNECT_CANCELLED;//0x2000B;
+gint *FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND;//0x20005
+gint *FRDP_ERRCONNECT_AUTHENTICATION_FAILED;//0x20009;
+gint *FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED;// 0x2000c;
+
+GHashTable *FRDP_FATAL_ERRORS;
+
+void frdp_error_codes_init               ();
 
 G_END_DECLS

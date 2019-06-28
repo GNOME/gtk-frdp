@@ -388,11 +388,11 @@ frdp_session_connect_thread (GTask        *task,
     self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
 
     if (!self->priv->is_connected) {
-      authentication_errors +=
-          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x20009 ||
-          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x2000c ||
-          freerdp_get_last_error (self->priv->freerdp_session->context) == 0x20005;
-
+      UINT32 error_code = freerdp_get_last_error (self->priv->freerdp_session->context);
+      if( g_hash_table_lookup( FRDP_FATAL_ERRORS, g_new0 (gint,error_code ) ) ){
+        g_debug ("Failed to connect RPD host with error '%s'", freerdp_get_last_error_string( error_code ) );
+        authentication_errors++;
+      }
       freerdp_free (self->priv->freerdp_session);
       frdp_session_init_freerdp (self);
     }
@@ -751,4 +751,20 @@ frdp_session_get_pixbuf (FrdpSession *self)
   return gdk_pixbuf_get_from_surface (self->priv->surface,
                                       0, 0,
                                       width, height);
+}
+
+
+void frdp_error_codes_init ()
+{
+  FRDP_FATAL_ERRORS = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+  FRDP_ERRCONNECT_CONNECT_CANCELLED = g_new0 (gint, 0x2000B);
+  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_CONNECT_CANCELLED ), NULL);
+  FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND = g_new0 (gint, 0x20005);
+  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND ), NULL);
+  FRDP_ERRCONNECT_AUTHENTICATION_FAILED = g_new0 (gint, 0x20009);
+  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_AUTHENTICATION_FAILED ), NULL);
+  FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED = g_new0 (gint, 0x2000c);
+  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED ), NULL);
+
+
 }
