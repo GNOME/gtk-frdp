@@ -568,6 +568,8 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                             G_SIGNAL_RUN_FIRST,
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 0);
+
+    frdp_error_codes_init();
 }
 
 static void
@@ -756,15 +758,14 @@ frdp_session_get_pixbuf (FrdpSession *self)
 
 void frdp_error_codes_init ()
 {
-  FRDP_FATAL_ERRORS = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
-  FRDP_ERRCONNECT_CONNECT_CANCELLED = g_new0 (gint, 0x2000B);
-  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_CONNECT_CANCELLED ), NULL);
-  FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND = g_new0 (gint, 0x20005);
-  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND ), NULL);
-  FRDP_ERRCONNECT_AUTHENTICATION_FAILED = g_new0 (gint, 0x20009);
-  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_AUTHENTICATION_FAILED ), NULL);
-  FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED = g_new0 (gint, 0x2000c);
-  g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED ), NULL);
-
+    FRDP_FATAL_ERRORS = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+    FRDP_ERRCONNECT_CONNECT_CANCELLED = g_new0 (gint, 0x2000B);
+    g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_CONNECT_CANCELLED ), GINT_TO_POINTER (1));
+    FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND = g_new0 (gint, 0x20005);
+    g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_DNS_NAME_NOT_FOUND ), GINT_TO_POINTER (1));
+    FRDP_ERRCONNECT_AUTHENTICATION_FAILED = g_new0 (gint, 0x20009);
+    g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_AUTHENTICATION_FAILED ), GINT_TO_POINTER (1));
+    FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED = g_new0 (gint, 0x2000c);
+    g_hash_table_insert (FRDP_FATAL_ERRORS, GINT_TO_POINTER(FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED ), GINT_TO_POINTER (1));
 
 }
