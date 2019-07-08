@@ -80,6 +80,9 @@ void         frdp_session_mouse_event    (FrdpSession          *self,
                                           guint16               x,
                                           guint16               y);
 
+void         frdp_session_mouse_pointer  (FrdpSession          *self,
+                                          gboolean              enter);
+
 void         frdp_session_send_key       (FrdpSession          *self,
                                           FrdpKeyEvent          event,
                                           guint16               keycode);
