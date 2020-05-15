@@ -357,6 +357,20 @@ frdp_certificate_verify (freerdp     *freerdp_session,
   return TRUE;
 }
 
+static guint
+frdp_changed_certificate_verify (freerdp     *freerdp_session,
+                                 const gchar *common_name,
+                                 const gchar *subject,
+                                 const gchar *issuer,
+                                 const gchar *new_fingerprint,
+                                 const gchar *old_subject,
+                                 const gchar *old_issuer,
+                                 const gchar *old_fingerprint)
+{
+  /* TODO */
+  return TRUE;
+}
+
 static gboolean
 frdp_authenticate (freerdp  *freerdp_session,
                    gchar   **username,
@@ -563,6 +577,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   priv->freerdp_session->PostConnect = frdp_post_connect;
   priv->freerdp_session->Authenticate = frdp_authenticate;
   priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
+  priv->freerdp_session->VerifyChangedCertificate = frdp_changed_certificate_verify;
 
   priv->freerdp_session->ContextSize = sizeof (frdpContext);
 
