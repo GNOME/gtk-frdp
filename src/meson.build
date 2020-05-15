@@ -37,8 +37,10 @@ cc = meson.get_compiler('c')
 vala = meson.get_compiler('vala')
 
 gtk_frdp_deps = [
-  dependency('winpr2'),
-  dependency('freerdp2'),
+  # The 2.0.0-rc4 version is needed at least, but there is no easy way to detect this.
+  dependency('winpr2', version: '>= 2.0.0'),
+  dependency('freerdp2', version: '>= 2.0.0'),
+
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
   cc.find_library('m'),
