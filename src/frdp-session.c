@@ -114,7 +114,6 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0);
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
-    cairo_surface_destroy (surface);
   } else if (!priv->show_cursor || !priv->cursor)
       /* No cursor set or none to show */
     cursor = gdk_cursor_new_from_name (display, "default");
