@@ -564,6 +564,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->Password = g_strdup (priv->password);
 
   settings->AllowFontSmoothing = TRUE;
+  settings->AllowUnanouncedOrdersFromServer = TRUE;
 }
 
 static void
