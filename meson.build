@@ -28,6 +28,7 @@ endif
 gnome = import('gnome')
 
 subdir('src')
-subdir('examples')
 
-
+if get_option('examples')
+  subdir('examples')
+endif

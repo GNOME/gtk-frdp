@@ -1,4 +1,8 @@
-# Subproject
-option('package_subdir', type: 'string',
-  description: 'Subdirectory to append to all installed files, for use as subproject'
-)
+option ('examples',
+        type: 'boolean',
+        value: false,
+        description: 'Whether to build and install the example/demo app')
+
+option ('package_subdir',
+        type: 'string',
+        description: 'Subdir for when gtk-frdp is consumed as a subproject')
