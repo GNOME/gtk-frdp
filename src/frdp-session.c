@@ -575,54 +575,48 @@ frdp_session_connect_thread (GTask        *task,
                              GCancellable *cancellable)
 {
   FrdpSession *self = (FrdpSession*) source_object;
-  guint authentication_errors = 0;
-  guint overflow_protection = 0;
 
   frdp_session_init_freerdp (self);
-  gboolean await_connection = TRUE;
-  do {
-    self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
 
-    if (!self->priv->is_connected) {
-        UINT32 error_code = freerdp_get_last_error (self->priv->freerdp_session->context);
-        g_debug ("Failed to connect RPD host with error '%s'", freerdp_get_last_error_string( error_code ) );
-        switch(error_code){
-          case FRDP_ERRCONNECT_CONNECT_CANCELLED:
-          case FRDP_ERRCONNECT_AUTHENTICATION_FAILED:
-          case FRDP_ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED:
-          //@TODO signal UI thread with custom error message
-            g_warning ("Failed to connect RPD host with error '%s'", freerdp_get_last_error_string( error_code ) );
-            authentication_errors++;
-          break;
+  self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
+  if (!self->priv->is_connected) {
+    guint32 error_code;
 
-          default:
-             g_warning ("Unhandled FreeRDP error occured '%s'", freerdp_get_last_error_string( error_code ) );
-             overflow_protection++;
+    error_code = freerdp_get_last_error (self->priv->freerdp_session->context);
+    switch (error_code) {
+        case FREERDP_ERROR_AUTHENTICATION_FAILED:
+        case FREERDP_ERROR_CONNECT_FAILED:
+        case FREERDP_ERROR_SERVER_DENIED_CONNECTION:
+        case FREERDP_ERROR_CONNECT_NO_OR_MISSING_CREDENTIALS:
+        case STATUS_LOGON_FAILURE:
+        case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
+        case ERRCONNECT_CONNECT_TRANSPORT_FAILED:
+            g_warning ("Failed to connect RPD host with error '%s'",
+                       freerdp_get_last_error_string (error_code));
             break;
-        }
-      freerdp_free (self->priv->freerdp_session);
-      frdp_session_init_freerdp (self);
 
-      if( authentication_errors >= 3 || overflow_protection >= FRDP_CONNECTION_THREAD_MAX_ERRORS ){
-        await_connection = FALSE;
-      }
-
+        default:
+            g_warning ("Unhandled FreeRDP error: '%s'",
+                       freerdp_get_last_error_string (error_code));
+            break;
     }
-  } while (!self->priv->is_connected && await_connection);
 
-  if (self->priv->is_connected) {
-    g_signal_connect (self->priv->display, "draw",
-                      G_CALLBACK (frdp_session_draw), self);
-    g_signal_connect (self->priv->display, "configure-event",
-                      G_CALLBACK (frdp_session_configure_event), self);
-    frdp_session_set_scaling (self, TRUE);
-
-    self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
-  } else {
+    freerdp_free (self->priv->freerdp_session);
     g_idle_add ((GSourceFunc) idle_close, self);
+    g_task_return_boolean (task, FALSE);
+
+    return;
   }
 
-  g_task_return_boolean (task, self->priv->is_connected);
+  g_signal_connect (self->priv->display, "draw",
+                    G_CALLBACK (frdp_session_draw), self);
+  g_signal_connect (self->priv->display, "configure-event",
+                    G_CALLBACK (frdp_session_configure_event), self);
+  frdp_session_set_scaling (self, TRUE);
+
+  self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
+
+  g_task_return_boolean (task, TRUE);
 }
 
 static void
