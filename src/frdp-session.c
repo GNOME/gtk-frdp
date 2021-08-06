@@ -667,7 +667,6 @@ frdp_session_connect_thread (GTask        *task,
             break;
     }
 
-    freerdp_free (self->priv->freerdp_session);
     g_idle_add ((GSourceFunc) idle_close, self);
     g_task_return_boolean (task, FALSE);
 
@@ -769,7 +768,8 @@ frdp_session_finalize (GObject *object)
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
   }
 
-  frdp_session_close (self);
+  if (frdp_session_is_open (self))
+    frdp_session_close (self);
 
   g_clear_pointer (&self->priv->hostname, g_free);
   g_clear_pointer (&self->priv->username, g_free);
