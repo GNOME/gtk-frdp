@@ -261,8 +261,6 @@ frdp_display_open_host_cb (GObject      *source_object,
     g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
 
     g_debug ("Connection failed");
-
-    frdp_display_close (self);
   }
 }
 
