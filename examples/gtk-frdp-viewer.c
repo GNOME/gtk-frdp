@@ -19,6 +19,16 @@
 #include <gtk-frdp.h>
 
 static void
+on_rdp_auth_failure (GObject     *source_object,
+                     const gchar *message,
+                     gpointer     user_data)
+{
+  g_print ("-> %s\n", message);
+
+  g_application_quit (user_data);
+}
+
+static void
 on_activate (GtkApplication *app)
 {
   GtkWindow *window;
@@ -34,6 +44,11 @@ on_activate (GtkApplication *app)
                            NULL);
 
   display = frdp_display_new ();
+
+  g_signal_connect (display,
+                    "rdp-auth-failure",
+                    G_CALLBACK (on_rdp_auth_failure),
+                    app);
 
   gtk_container_add (GTK_CONTAINER (window), display);
   gtk_widget_show (display);

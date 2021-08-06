@@ -40,6 +40,7 @@ enum
   RDP_CONNECTED,
   RDP_DISCONNECTED,
   RDP_NEEDS_AUTHENTICATION,
+  RDP_AUTH_FAILURE,
   LAST_SIGNAL
 };
 
@@ -220,6 +221,14 @@ frdp_leave_notify_event (GtkWidget	       *widget,
 }
 
 static void
+frdp_display_auth_failure (GObject     *source_object,
+                           const gchar *message,
+                           gpointer     user_data)
+{
+  g_signal_emit (user_data, signals[RDP_AUTH_FAILURE], 0, message);
+}
+
+static void
 frdp_display_disconnected (GObject  *source_object,
                            gpointer  user_data)
 {
@@ -374,6 +383,12 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                     G_SIGNAL_RUN_LAST,
                                                     0, NULL, NULL, NULL,
                                                     G_TYPE_NONE, 0);
+  signals[RDP_AUTH_FAILURE] = g_signal_new ("rdp-auth-failure",
+                                            G_TYPE_FROM_CLASS (klass),
+                                            G_SIGNAL_RUN_LAST,
+                                            0, NULL, NULL, NULL,
+                                            G_TYPE_NONE, 1,
+                                            G_TYPE_STRING);
 }
 
 static void
@@ -416,6 +431,9 @@ frdp_display_open_host (FrdpDisplay  *display,
 
   g_signal_connect (priv->session, "rdp-disconnected",
                     G_CALLBACK (frdp_display_disconnected),
+                    display);
+  g_signal_connect (priv->session, "rdp-auth-failure",
+                    G_CALLBACK (frdp_display_auth_failure),
                     display);
 
   frdp_session_connect (priv->session,
