@@ -81,6 +81,7 @@ enum
 {
   RDP_CONNECTED,
   RDP_DISCONNECTED,
+  RDP_AUTH_FAILURE,
   LAST_SIGNAL
 };
 
@@ -652,6 +653,10 @@ frdp_session_connect_thread (GTask        *task,
         case STATUS_LOGON_FAILURE:
         case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
         case ERRCONNECT_CONNECT_TRANSPORT_FAILED:
+            g_signal_emit (self,
+                           signals[RDP_AUTH_FAILURE], 0,
+                           freerdp_get_last_error_string (error_code));
+
             g_warning ("Failed to connect RPD host with error '%s'",
                        freerdp_get_last_error_string (error_code));
             break;
@@ -835,6 +840,12 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                             G_SIGNAL_RUN_FIRST,
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 0);
+  signals[RDP_AUTH_FAILURE] = g_signal_new ("rdp-auth-failure",
+                                            FRDP_TYPE_SESSION,
+                                            G_SIGNAL_RUN_FIRST,
+                                            0, NULL, NULL, NULL,
+                                            G_TYPE_NONE, 1,
+                                            G_TYPE_STRING);
 
 }
 
