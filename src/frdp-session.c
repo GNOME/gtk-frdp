@@ -591,7 +591,6 @@ frdp_session_connect_thread (GTask        *task,
         case FREERDP_ERROR_CONNECT_NO_OR_MISSING_CREDENTIALS:
         case STATUS_LOGON_FAILURE:
         case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
-        case ERRCONNECT_CONNECT_TRANSPORT_FAILED:
             g_signal_emit (self,
                            signals[RDP_AUTH_FAILURE], 0,
                            freerdp_get_last_error_string (error_code));
