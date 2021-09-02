@@ -99,7 +99,10 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
   GdkDisplay *display;
   GdkWindow  *window;
 
-  window = gtk_widget_get_parent_window(priv->display);
+  window = gtk_widget_get_window (priv->display);
+  if (window == NULL)
+    return;
+
   display = gtk_widget_get_display(priv->display);
   if (priv->show_cursor && priv->cursor_null) {
     cairo_surface_t *surface;
@@ -207,7 +210,6 @@ fail:
 static void
 frdp_Pointer_Free (rdpContext* context, rdpPointer* pointer)
 {
-  frdpContext *fcontext = (frdpContext*) context;
   frdpPointer *fpointer = (frdpPointer*) pointer;
 
   if (fpointer && fpointer->data) {
@@ -236,21 +238,20 @@ frdp_Pointer_SetNull (rdpContext* context)
 {
   frdpContext *fcontext = (frdpContext*) context;
   FrdpSessionPrivate *priv = fcontext->self->priv;
-  unsigned char *data;
-  cairo_surface_t *surface;
 
   priv->cursor = NULL;
   priv->cursor_null = TRUE;
 
   frdp_session_update_mouse_pointer (fcontext->self);
-	return TRUE;
+
+  return TRUE;
 }
 
 static BOOL
 frdp_Pointer_SetDefault (rdpContext* context)
 {
   frdpContext *fcontext = (frdpContext*) context;
-   FrdpSessionPrivate *priv = fcontext->self->priv;
+  FrdpSessionPrivate *priv = fcontext->self->priv;
 
   priv->cursor = NULL;
   priv->cursor_null = FALSE;
@@ -261,9 +262,7 @@ frdp_Pointer_SetDefault (rdpContext* context)
 static BOOL
 frdp_Pointer_SetPosition (rdpContext* context, UINT32 x, UINT32 y)
 {
-  frdpContext *fcontext = (frdpContext*) context;
-  /* TODO */
-	return TRUE;
+  return TRUE;
 }
 
 static void
@@ -496,7 +495,25 @@ idle_close (gpointer user_data)
 {
   FrdpSession *self = (FrdpSession*) user_data;
 
+  self->priv->is_connected = FALSE;
+
+  if (self->priv->update_id > 0) {
+    g_source_remove (self->priv->update_id);
+    self->priv->update_id = 0;
+  }
+
+  if (self->priv->freerdp_session != NULL) {
+    freerdp_disconnect (self->priv->freerdp_session);
+    freerdp_context_free (self->priv->freerdp_session);
+    g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
+  }
+
+  g_clear_pointer (&self->priv->hostname, g_free);
+  g_clear_pointer (&self->priv->username, g_free);
+  g_clear_pointer (&self->priv->password, g_free);
+
   g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
+  g_debug ("RDP client disconnected");
 
   return FALSE;
 }
@@ -567,6 +584,16 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   settings->AllowFontSmoothing = TRUE;
   settings->AllowUnanouncedOrdersFromServer = TRUE;
+
+  /* Security settings */
+  settings->RdpSecurity = TRUE;
+  settings->TlsSecurity = TRUE;
+  settings->NlaSecurity = TRUE;
+  settings->EncryptionMethods = ENCRYPTION_METHOD_40BIT | ENCRYPTION_METHOD_128BIT | ENCRYPTION_METHOD_FIPS;
+  settings->EncryptionLevel = ENCRYPTION_LEVEL_CLIENT_COMPATIBLE;
+  settings->UseRdpSecurityLayer = FALSE;
+
+  settings->NegotiateSecurityLayer = TRUE;
 }
 
 static void
@@ -589,7 +616,10 @@ frdp_session_connect_thread (GTask        *task,
         case FREERDP_ERROR_CONNECT_FAILED:
         case FREERDP_ERROR_SERVER_DENIED_CONNECTION:
         case FREERDP_ERROR_CONNECT_NO_OR_MISSING_CREDENTIALS:
+        case FREERDP_ERROR_CONNECT_LOGON_FAILURE:
         case STATUS_LOGON_FAILURE:
+        case STATUS_PASSWORD_EXPIRED:
+        case FREERDP_ERROR_CONNECT_ACCOUNT_EXPIRED:
         case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
             g_signal_emit (self,
                            signals[RDP_AUTH_FAILURE], 0,
@@ -698,20 +728,8 @@ static void
 frdp_session_finalize (GObject *object)
 {
   FrdpSession *self = (FrdpSession*) object;
-  /* TODO: free the world! */
 
-  if (self->priv->freerdp_session) {
-    freerdp_disconnect (self->priv->freerdp_session);
-    freerdp_context_free (self->priv->freerdp_session);
-    g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
-  }
-
-  if (frdp_session_is_open (self))
-    frdp_session_close (self);
-
-  g_clear_pointer (&self->priv->hostname, g_free);
-  g_clear_pointer (&self->priv->username, g_free);
-  g_clear_pointer (&self->priv->password, g_free);
+  idle_close (self);
 
   G_OBJECT_CLASS (frdp_session_parent_class)->finalize (object);
 }
@@ -773,6 +791,11 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                          TRUE,
                                                          G_PARAM_READWRITE));
 
+  signals[RDP_CONNECTED] = g_signal_new ("rdp-connected",
+                                         FRDP_TYPE_SESSION,
+                                         G_SIGNAL_RUN_FIRST,
+                                         0, NULL, NULL, NULL,
+                                         G_TYPE_NONE, 0);
   signals[RDP_DISCONNECTED] = g_signal_new ("rdp-disconnected",
                                             FRDP_TYPE_SESSION,
                                             G_SIGNAL_RUN_FIRST,
@@ -843,18 +866,9 @@ frdp_session_is_open (FrdpSession *self)
 void
 frdp_session_close (FrdpSession *self)
 {
-  if (self->priv->update_id > 0) {
-    g_source_remove (self->priv->update_id);
-    self->priv->update_id = 0;
-  }
+  idle_close (self);
 
-  if (self->priv->freerdp_session != NULL) {
-    gdi_free (self->priv->freerdp_session);
-
-    self->priv->is_connected = FALSE;
-
-    g_debug ("Closing RDP session");
-  }
+  g_debug ("Closing RDP session");
 }
 
 void
