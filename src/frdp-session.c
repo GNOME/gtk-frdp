@@ -682,6 +682,8 @@ frdp_session_connect_thread (GTask        *task,
         case STATUS_PASSWORD_EXPIRED:
         case FREERDP_ERROR_CONNECT_ACCOUNT_EXPIRED:
         case FREERDP_ERROR_CONNECT_TRANSPORT_FAILED:
+        case ERRCONNECT_CONNECT_TRANSPORT_FAILED:
+        case FREERDP_ERROR_TLS_CONNECT_FAILED:
             g_signal_emit (self,
                            signals[RDP_AUTH_FAILURE], 0,
                            freerdp_get_last_error_string (error_code));
