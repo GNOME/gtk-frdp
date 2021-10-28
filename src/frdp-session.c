@@ -79,6 +79,7 @@ enum
 
 enum
 {
+  RDP_ERROR,
   RDP_CONNECTED,
   RDP_DISCONNECTED,
   RDP_AUTH_FAILURE,
@@ -693,7 +694,11 @@ frdp_session_connect_thread (GTask        *task,
             break;
 
         default:
-            g_warning ("Unhandled FreeRDP error: '%s'",
+            g_signal_emit (self,
+                           signals[RDP_ERROR], 0,
+                           freerdp_get_last_error_string (error_code));
+
+            g_warning ("Unexpected RDP error: '%s'",
                        freerdp_get_last_error_string (error_code));
             break;
     }
@@ -854,23 +859,31 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                          TRUE,
                                                          G_PARAM_READWRITE));
 
+  signals[RDP_ERROR] = g_signal_new ("rdp-error",
+                                     FRDP_TYPE_SESSION,
+                                     G_SIGNAL_RUN_FIRST,
+                                     0, NULL, NULL, NULL,
+                                     G_TYPE_NONE, 1,
+                                     G_TYPE_STRING);
+
   signals[RDP_CONNECTED] = g_signal_new ("rdp-connected",
                                          FRDP_TYPE_SESSION,
                                          G_SIGNAL_RUN_FIRST,
                                          0, NULL, NULL, NULL,
                                          G_TYPE_NONE, 0);
+
   signals[RDP_DISCONNECTED] = g_signal_new ("rdp-disconnected",
                                             FRDP_TYPE_SESSION,
                                             G_SIGNAL_RUN_FIRST,
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 0);
+
   signals[RDP_AUTH_FAILURE] = g_signal_new ("rdp-auth-failure",
                                             FRDP_TYPE_SESSION,
                                             G_SIGNAL_RUN_FIRST,
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 1,
                                             G_TYPE_STRING);
-
 }
 
 static void

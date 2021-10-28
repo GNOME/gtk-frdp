@@ -37,6 +37,7 @@ enum
 
 enum
 {
+  RDP_ERROR,
   RDP_CONNECTED,
   RDP_DISCONNECTED,
   RDP_NEEDS_AUTHENTICATION,
@@ -221,6 +222,14 @@ frdp_leave_notify_event (GtkWidget	       *widget,
 }
 
 static void
+frdp_display_error (GObject     *source_object,
+                    const gchar *message,
+                    gpointer     user_data)
+{
+  g_signal_emit (user_data, signals[RDP_ERROR], 0, message);
+}
+
+static void
 frdp_display_auth_failure (GObject     *source_object,
                            const gchar *message,
                            gpointer     user_data)
@@ -364,6 +373,13 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                          TRUE,
                                                          G_PARAM_READWRITE));
 
+  signals[RDP_ERROR] = g_signal_new ("rdp-error",
+                                     G_TYPE_FROM_CLASS (klass),
+                                     G_SIGNAL_RUN_LAST,
+                                     0, NULL, NULL, NULL,
+                                     G_TYPE_NONE, 1,
+                                     G_TYPE_STRING);
+
   signals[RDP_CONNECTED] = g_signal_new ("rdp-connected",
                                          G_TYPE_FROM_CLASS (klass),
                                          G_SIGNAL_RUN_LAST,
@@ -381,6 +397,7 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                     G_SIGNAL_RUN_LAST,
                                                     0, NULL, NULL, NULL,
                                                     G_TYPE_NONE, 0);
+
   signals[RDP_AUTH_FAILURE] = g_signal_new ("rdp-auth-failure",
                                             G_TYPE_FROM_CLASS (klass),
                                             G_SIGNAL_RUN_LAST,
@@ -427,6 +444,9 @@ frdp_display_open_host (FrdpDisplay  *display,
 
   g_return_if_fail (host != NULL);
 
+  g_signal_connect (priv->session, "rdp-error",
+                    G_CALLBACK (frdp_display_error),
+                    display);
   g_signal_connect (priv->session, "rdp-disconnected",
                     G_CALLBACK (frdp_display_disconnected),
                     display);
