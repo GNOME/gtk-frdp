@@ -43,7 +43,8 @@ struct _FrdpSessionPrivate
   GtkWidget    *display;
   cairo_surface_t *surface;
   gboolean scaling;
-  double scale;
+  double scale_x;
+  double scale_y;
   double offset_x;
   double offset_y;
 
@@ -125,23 +126,22 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cursor = gdk_cursor_new_from_name (display, "default");
   else {
     rdpPointer *pointer = &priv->cursor->pointer;
-    double scale = self->priv->scale;
-    double x = priv->cursor->pointer.xPos * scale;
-    double y = priv->cursor->pointer.yPos * scale;
-    double w = pointer->width * scale;
-    double h = pointer->height * scale;
+    double x = priv->cursor->pointer.xPos * priv->scale_x;
+    double y = priv->cursor->pointer.yPos * priv->scale_y;
+    double w = pointer->width * priv->scale_x;
+    double h = pointer->height * priv->scale_y;
     cairo_surface_t *surface;
     cairo_t *cairo;
 
     if (!self->priv->scaling) {
-      scale = 1.0;
+      self->priv->scale_x = self->priv->scale_y = 1.0;
     }
 
     /* Scale the source image according to current settings. */
     surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
     cairo = cairo_create (surface);
 
-    cairo_scale(cairo, scale, scale);
+    cairo_scale(cairo, self->priv->scale_x, self->priv->scale_y);
     cairo_set_source_surface (cairo, priv->cursor->data, 0, 0);
     cairo_paint (cairo);
 
@@ -306,15 +306,16 @@ frdp_session_configure_event (GtkWidget *widget,
     width = (double)gtk_widget_get_allocated_width (widget);
     height = (double)gtk_widget_get_allocated_height (widget);
 
+    self->priv->scale_x = width / settings->DesktopWidth;
+    self->priv->scale_y = height / settings->DesktopHeight;
+
     if (width < height)
-      self->priv->scale = width / settings->DesktopWidth;
+      settings->DesktopScaleFactor = self->priv->scale_x;
     else
-      self->priv->scale = height / settings->DesktopHeight;
+      settings->DesktopScaleFactor = self->priv->scale_y;
 
-    settings->DesktopScaleFactor = self->priv->scale;
-
-    self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
-    self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
+    self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale_x) / 2.0;
+    self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale_y) / 2.0;
   }
 
   frdp_session_update_mouse_pointer (self);
@@ -338,7 +339,7 @@ frdp_session_draw (GtkWidget *widget,
 
   if (self->priv->scaling) {
       cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
-      cairo_scale (cr, self->priv->scale, self->priv->scale);
+      cairo_scale (cr, self->priv->scale_x, self->priv->scale_y);
   }
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
@@ -423,13 +424,13 @@ frdp_end_paint (rdpContext *context)
   priv = self->priv;
 
   if (priv->scaling) {
-      pos_x = self->priv->offset_x + x * priv->scale;
-      pos_y = self->priv->offset_y + y * priv->scale;
+      pos_x = self->priv->offset_x + x * priv->scale_x;
+      pos_y = self->priv->offset_y + y * priv->scale_y;
       gtk_widget_queue_draw_area (priv->display,
                                   floor (pos_x),
                                   floor (pos_y),
-                                  ceil (pos_x + w * priv->scale) - floor (pos_x),
-                                  ceil (pos_y + h * priv->scale) - floor (pos_y));
+                                  ceil (pos_x + w * priv->scale_x) - floor (pos_x),
+                                  ceil (pos_y + h * priv->scale_y) - floor (pos_y));
   } else {
     gtk_widget_queue_draw_area (priv->display, x, y, w, h);
   }
@@ -931,8 +932,8 @@ frdp_session_mouse_event (FrdpSession          *self,
   input = priv->freerdp_session->input;
 
   if (priv->scaling) {
-    x = (x - priv->offset_x) / priv->scale;
-    y = (y - priv->offset_y) / priv->scale;
+    x = (x - priv->offset_x) / priv->scale_x;
+    y = (y - priv->offset_y) / priv->scale_y;
   }
 
   x = x < 0.0 ? 0.0 : x;
