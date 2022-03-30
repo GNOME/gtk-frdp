@@ -505,7 +505,6 @@ idle_close (gpointer user_data)
 
   if (self->priv->freerdp_session != NULL) {
     freerdp_disconnect (self->priv->freerdp_session);
-    freerdp_context_free (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
   }
 
