@@ -45,6 +45,7 @@ struct _FrdpSessionPrivate
 
   GtkWidget    *display;
   cairo_surface_t *surface;
+  cairo_format_t cairo_format;
   gboolean scaling;
   double scale_x;
   double scale_y;
@@ -163,31 +164,80 @@ frdp_session_get_best_color_depth (FrdpSession *self)
 }
 
 static void
+create_cairo_surface (FrdpSession *self)
+{
+  rdpGdi *gdi;
+  gint stride;
+
+  if (self->priv->surface != NULL) {
+    cairo_surface_mark_dirty (self->priv->surface);
+    cairo_surface_destroy (self->priv->surface);
+    self->priv->surface = NULL;
+  }
+
+  gdi = self->priv->freerdp_session->context->gdi;
+  stride = cairo_format_stride_for_width (self->priv->cairo_format, gdi->width);
+  self->priv->surface =
+      cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
+                                           self->priv->cairo_format,
+                                           gdi->width,
+                                           gdi->height,
+                                           stride);
+  cairo_surface_flush (self->priv->surface);
+}
+
+static void
+frdp_session_size_allocate (GtkWidget     *widget,
+                            GtkAllocation *allocation,
+                            gpointer       user_data)
+{
+  FrdpSession *self = (FrdpSession*) user_data;
+
+  gtk_widget_realize (self->priv->display);
+  GtkWidget *scrolled = gtk_widget_get_ancestor (self->priv->display, GTK_TYPE_SCROLLED_WINDOW);
+  gtk_widget_queue_draw_area (self->priv->display,
+                              0,
+                              0,
+                              gtk_widget_get_allocated_width (scrolled),
+                              gtk_widget_get_allocated_height (scrolled));
+  create_cairo_surface (self);
+
+  g_print ("Display size-allocate (%d, %d)\n\n", allocation->width, allocation->height);
+  g_print ("SCrolled (%d, %d)\n\n",
+                              gtk_widget_get_allocated_width (scrolled),
+                              gtk_widget_get_allocated_height (scrolled));
+}
+
+static void
 frdp_session_configure_event (GtkWidget *widget,
                               GdkEvent  *event,
                               gpointer   user_data)
 {
   FrdpSession *self = (FrdpSession*) user_data;
   rdpSettings *settings = self->priv->freerdp_session->settings;
+  rdpGdi *gdi;
   double width, height;
 
-  if (self->priv->scaling) {
-    width = (double)gtk_widget_get_allocated_width (widget);
-    height = (double)gtk_widget_get_allocated_height (widget);
+  gdi = self->priv->freerdp_session->context->gdi;
+  if (self->priv->surface == NULL) {
+    create_cairo_surface (self);
+  }
 
+  GtkWidget *scrolled = gtk_widget_get_ancestor (widget, GTK_TYPE_SCROLLED_WINDOW);
+  width = (double)gtk_widget_get_allocated_width (scrolled);
+  height = (double)gtk_widget_get_allocated_height (scrolled);
+
+  if (self->priv->scaling) {
     self->priv->scale_x = width / settings->DesktopWidth;
     self->priv->scale_y = height / settings->DesktopHeight;
 
-    if (width < height)
-      settings->DesktopScaleFactor = self->priv->scale_x;
-    else
-      settings->DesktopScaleFactor = self->priv->scale_y;
-
     self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale_x) / 2.0;
     self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale_y) / 2.0;
-  }
 
-  frdp_session_update_mouse_pointer (self);
+    gtk_widget_set_size_request (self->priv->display, -1, -1);
+  } else {
+    gtk_widget_set_size_request (self->priv->display, gdi->width, gdi->height);
+  }
 }
 
 static void
@@ -210,6 +260,7 @@ frdp_session_draw (GtkWidget *widget,
       cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
       cairo_scale (cr, self->priv->scale_x, self->priv->scale_y);
   }
+
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
 
@@ -350,7 +401,6 @@ frdp_post_connect (freerdp *freerdp_session)
   rdpSettings *settings;
   rdpContext *context;
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
-  cairo_format_t cairo_format;
   rdpGdi *gdi;
   guint32 color_format;
   gint stride;
@@ -361,20 +411,20 @@ frdp_post_connect (freerdp *freerdp_session)
   switch (frdp_session_get_best_color_depth (self)) {
     case 32:
       color_format = PIXEL_FORMAT_BGRA32;
-      cairo_format = CAIRO_FORMAT_ARGB32;
+      self->priv->cairo_format = CAIRO_FORMAT_ARGB32;
       break;
     case 24:
       color_format = PIXEL_FORMAT_BGRX32;
-      cairo_format = CAIRO_FORMAT_RGB24;
+      self->priv->cairo_format = CAIRO_FORMAT_RGB24;
       break;
     case 16:
     case 15:
       color_format = PIXEL_FORMAT_BGR16;
-      cairo_format = CAIRO_FORMAT_RGB16_565;
+      self->priv->cairo_format = CAIRO_FORMAT_RGB16_565;
       break;
     default:
       color_format = PIXEL_FORMAT_BGRX32;
-      cairo_format = CAIRO_FORMAT_RGB16_565;
+      self->priv->cairo_format = CAIRO_FORMAT_RGB16_565;
       break;
   }
 
@@ -383,20 +433,6 @@ frdp_post_connect (freerdp *freerdp_session)
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
   freerdp_session->update->EndPaint = frdp_end_paint;
-
-  stride = cairo_format_stride_for_width (cairo_format, gdi->width);
-  self->priv->surface =
-      cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
-                                           cairo_format,
-                                           gdi->width,
-                                           gdi->height,
-                                           stride);
-
-  gtk_widget_queue_draw_area (self->priv->display,
-                              0,
-                              0,
-                              gdi->width,
-                              gdi->height);
 
   EventArgsInit(&e, "frdp");
 	e.width = settings->DesktopWidth;
@@ -583,13 +619,17 @@ frdp_session_connect_thread (GTask        *task,
     return;
   }
 
+  gtk_widget_realize (self->priv->display);
   g_signal_connect (self->priv->display, "draw",
                     G_CALLBACK (frdp_session_draw), self);
   g_signal_connect (self->priv->display, "configure-event",
                     G_CALLBACK (frdp_session_configure_event), self);
-  frdp_session_set_scaling (self, TRUE);
+  g_signal_connect (self->priv->display, "size-allocate",
+                    G_CALLBACK (frdp_session_size_allocate), self);
 
   self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
+
+  /*create_cairo_surface (self);*/
 
   g_task_return_boolean (task, TRUE);
 }
