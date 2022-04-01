@@ -602,8 +602,11 @@ update (gpointer user_data)
     return FALSE;
 
   if (!freerdp_check_event_handles (priv->freerdp_session->context)) {
+    if (freerdp_get_last_error(priv->freerdp_session->context) == FREERDP_ERROR_SUCCESS) {
       g_warning ("Failed to check FreeRDP file descriptor");
-      return FALSE;
+    }
+
+    return TRUE;
   }
 
   if (freerdp_shall_disconnect (priv->freerdp_session)) {
