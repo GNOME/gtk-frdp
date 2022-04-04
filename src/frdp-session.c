@@ -176,6 +176,13 @@ create_cairo_surface (FrdpSession *self)
   }
 
   gdi = self->priv->freerdp_session->context->gdi;
+
+  GtkWidget *scrolled = gtk_widget_get_ancestor (self->priv->display, GTK_TYPE_SCROLLED_WINDOW);
+  gdi_resize (gdi, gtk_widget_get_allocated_width (scrolled),
+                   gtk_widget_get_allocated_height (scrolled));
+  gtk_widget_set_size_request (self->priv->display,
+                               gdi->width, gdi->height);
+
   stride = cairo_format_stride_for_width (self->priv->cairo_format, gdi->width);
   self->priv->surface =
       cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
@@ -193,19 +200,7 @@ frdp_session_size_allocate (GtkWidget     *widget,
 {
   FrdpSession *self = (FrdpSession*) user_data;
 
-  gtk_widget_realize (self->priv->display);
-  GtkWidget *scrolled = gtk_widget_get_ancestor (self->priv->display, GTK_TYPE_SCROLLED_WINDOW);
-  gtk_widget_queue_draw_area (self->priv->display,
-                              0,
-                              0,
-                              gtk_widget_get_allocated_width (scrolled),
-                              gtk_widget_get_allocated_height (scrolled));
   create_cairo_surface (self);
-
-  g_print ("Display size-allocate (%d, %d)\n\n", allocation->width, allocation->height);
-  g_print ("SCrolled (%d, %d)\n\n",
-                              gtk_widget_get_allocated_width (scrolled),
-                              gtk_widget_get_allocated_height (scrolled));
 }
 
 static void
@@ -565,6 +560,10 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   settings->NegotiateSecurityLayer = TRUE;
 
+  settings->DesktopResize = TRUE;
+  settings->DynamicResolutionUpdate = TRUE;
+  settings->SupportDisplayControl = TRUE;
+
   freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 }
 
@@ -620,6 +619,7 @@ frdp_session_connect_thread (GTask        *task,
   }
 
   gtk_widget_realize (self->priv->display);
+  create_cairo_surface (self);
   g_signal_connect (self->priv->display, "draw",
                     G_CALLBACK (frdp_session_draw), self);
   g_signal_connect (self->priv->display, "configure-event",
@@ -628,8 +628,6 @@ frdp_session_connect_thread (GTask        *task,
                     G_CALLBACK (frdp_session_size_allocate), self);
 
   self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
-
-  /*create_cairo_surface (self);*/
 
   g_task_return_boolean (task, TRUE);
 }
