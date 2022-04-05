@@ -184,7 +184,6 @@ create_cairo_surface (FrdpSession *self)
   gtk_widget_set_size_request (priv->display,
                                settings->DesktopWidth,
                                settings->DesktopHeight);
-
   stride = cairo_format_stride_for_width (priv->cairo_format, gdi->width);
   self->priv->surface =
       cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
@@ -252,6 +251,8 @@ frdp_session_draw (GtkWidget *widget,
 
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
+
+  frdp_display_set_scaling (self->priv->display, self->priv->scaling);
 
   return TRUE;
 }
