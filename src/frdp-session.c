@@ -178,7 +178,6 @@ create_cairo_surface (FrdpSession *self)
   }
 
   gdi = priv->freerdp_session->context->gdi;
-
   settings = priv->freerdp_session->context->settings;
   gdi_resize (gdi, settings->DesktopWidth, settings->DesktopHeight);
 
@@ -233,8 +232,6 @@ frdp_session_set_scaling (FrdpSession *self,
                           gboolean     scaling)
 {
   self->priv->scaling = scaling;
-
-  frdp_session_configure_event (self->priv->display, NULL, self);
 }
 
 static gboolean
