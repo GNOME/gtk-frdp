@@ -516,9 +516,6 @@ frdp_display_set_scaling (FrdpDisplay *display,
 
     gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);
     gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
-  } else {
-    gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_CENTER);
-    gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_CENTER);
   }
 
   gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
