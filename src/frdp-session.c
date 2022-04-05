@@ -201,29 +201,31 @@ frdp_session_configure_event (GtkWidget *widget,
                               gpointer   user_data)
 {
   FrdpSession *self = (FrdpSession*) user_data;
-  rdpSettings *settings = self->priv->freerdp_session->settings;
+  FrdpSessionPrivate *priv = self->priv;
+  GtkScrolledWindow *scrolled;
+  rdpSettings *settings = priv->freerdp_session->settings;
   rdpGdi *gdi;
   double width, height;
 
-  gdi = self->priv->freerdp_session->context->gdi;
-  if (self->priv->surface == NULL) {
+  gdi = priv->freerdp_session->context->gdi;
+  if (priv->surface == NULL) {
     create_cairo_surface (self);
   }
 
-  GtkWidget *scrolled = gtk_widget_get_ancestor (widget, GTK_TYPE_SCROLLED_WINDOW);
+  scrolled = gtk_widget_get_ancestor (widget, GTK_TYPE_SCROLLED_WINDOW);
   width = (double)gtk_widget_get_allocated_width (scrolled);
   height = (double)gtk_widget_get_allocated_height (scrolled);
 
-  if (self->priv->scaling) {
-    self->priv->scale_x = width / settings->DesktopWidth;
-    self->priv->scale_y = height / settings->DesktopHeight;
+  if (priv->scaling) {
+    priv->scale_x = width / settings->DesktopWidth;
+    priv->scale_y = height / settings->DesktopHeight;
 
-    self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale_x) / 2.0;
-    self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale_y) / 2.0;
+    priv->offset_x = (width - settings->DesktopWidth * priv->scale_x) / 2.0;
+    priv->offset_y = (height - settings->DesktopHeight * priv->scale_y) / 2.0;
 
-    gtk_widget_set_size_request (self->priv->display, -1, -1);
+    gtk_widget_set_size_request (priv->display, settings->DesktopWidth, settings->DesktopHeight);
   } else {
-    gtk_widget_set_size_request (self->priv->display, gdi->width, gdi->height);
+    gtk_widget_set_size_request (priv->display, gdi->width, gdi->height);
   }
 }
 
