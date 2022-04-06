@@ -246,6 +246,10 @@ frdp_session_draw (GtkWidget *widget,
 {
   FrdpSession *self = (FrdpSession*) user_data;
 
+  // Nothing to draw if disconnected
+  if (!self->priv->is_connected)
+    return FALSE;
+
   create_cairo_surface (self);
 
   if (self->priv->scaling) {
@@ -402,10 +406,6 @@ idle_close (gpointer user_data)
     freerdp_disconnect (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
   }
-
-  g_clear_pointer (&self->priv->hostname, g_free);
-  g_clear_pointer (&self->priv->username, g_free);
-  g_clear_pointer (&self->priv->password, g_free);
 
   g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
   g_debug ("RDP client disconnected");
