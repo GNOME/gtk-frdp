@@ -206,9 +206,12 @@ frdp_session_configure_event (GtkWidget *widget,
   FrdpSession *self = (FrdpSession*) user_data;
   FrdpSessionPrivate *priv = self->priv;
   GtkScrolledWindow *scrolled;
-  rdpSettings *settings = priv->freerdp_session->settings;
+  rdpSettings *settings;
   rdpGdi *gdi;
   double width, height;
+
+  if (priv->freerdp_session == NULL)
+    return;
 
   gdi = priv->freerdp_session->context->gdi;
   if (priv->surface == NULL) {
@@ -218,6 +221,10 @@ frdp_session_configure_event (GtkWidget *widget,
   scrolled = gtk_widget_get_ancestor (widget, GTK_TYPE_SCROLLED_WINDOW);
   width = (double)gtk_widget_get_allocated_width (scrolled);
   height = (double)gtk_widget_get_allocated_height (scrolled);
+
+  if (priv->freerdp_session->settings == NULL)
+    return;
+  settings = priv->freerdp_session->settings;
 
   if (priv->scaling) {
     priv->scale_x = width / settings->DesktopWidth;
