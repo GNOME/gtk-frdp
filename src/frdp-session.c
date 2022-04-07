@@ -562,6 +562,8 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->DesktopResize = TRUE;
   settings->DynamicResolutionUpdate = TRUE;
   settings->SupportDisplayControl = TRUE;
+  settings->RemoteFxCodec = TRUE;
+  settings->ColorDepth = 32;
 
   freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 }
