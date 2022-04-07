@@ -510,6 +510,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->DesktopResize = TRUE;
   settings->DynamicResolutionUpdate = TRUE;
   settings->SupportDisplayControl = TRUE;
+  settings->RedirectClipboard = FALSE;
 }
 
 static void
