@@ -564,6 +564,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->SupportDisplayControl = TRUE;
   settings->RemoteFxCodec = TRUE;
   settings->ColorDepth = 32;
+  settings->RedirectClipboard = FALSE;
 
   freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 }
