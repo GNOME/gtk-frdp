@@ -315,6 +315,13 @@ frdp_authenticate (freerdp  *freerdp_session,
 static gboolean
 frdp_pre_connect (freerdp *freerdp_session)
 {
+  rdpSettings *settings;
+
+  settings = freerdp_session->context->settings;
+
+  settings->RemoteFxCodec = TRUE;
+  settings->ColorDepth = 32;
+
   return TRUE;
 }
 
