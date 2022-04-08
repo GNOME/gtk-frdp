@@ -17,6 +17,8 @@
  */
 
 #include <errno.h>
+#include <freerdp/input.h>
+#include <freerdp/locale/keyboard.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
 #include <gdk/gdk.h>
@@ -511,6 +513,8 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->DynamicResolutionUpdate = TRUE;
   settings->SupportDisplayControl = TRUE;
   settings->RedirectClipboard = FALSE;
+
+  settings->KeyboardLayout = freerdp_keyboard_init (0);
 }
 
 static void
@@ -875,43 +879,27 @@ frdp_session_mouse_pointer  (FrdpSession          *self,
   frdp_session_update_mouse_pointer (self);
 }
 
-static unsigned char keycode_scancodes[] = {
-   0,  0,  0,  0,  0,  0,  0, 28,
-  29, 53, 55, 56,  0, 71, 72, 73,
-  75, 77, 79, 80, 81, 82, 83,  0,
-   0,  0,  0,  0,  0,  0, 69,  0,
-   0,  0,  0,  0, 91, 92, 93,
-};
-
-static guint16
-frdp_session_get_scancode_by_keycode (guint16 keycode)
-{
-  if (keycode < 8)
-    return 0;
-  else if (keycode < 97)
-    return keycode - 8;
-  else if (keycode < 97 + sizeof (keycode_scancodes))
-    return keycode_scancodes[keycode - 97];
-  else
-    return 0;
-}
-
 void
 frdp_session_send_key (FrdpSession  *self,
-                       FrdpKeyEvent  event,
-                       guint16       keycode)
+                       GdkEventKey  *key)
 {
   rdpInput *input = self->priv->freerdp_session->input;
-  guint16 flags = 0;
-  guint16 scancode =
-      frdp_session_get_scancode_by_keycode (keycode);
+  DWORD scancode = 0;
+  guint8 keycode;
+  guint16 flags;
+  gboolean extended = FALSE;
 
-  if (event == FRDP_KEY_EVENT_PRESS)
-    flags |= KBD_FLAGS_DOWN;
-  else
-    flags |= KBD_FLAGS_RELEASE;
+  scancode =
+    freerdp_keyboard_get_rdp_scancode_from_x11_keycode (key->hardware_keycode);
 
-  input->KeyboardEvent (input, flags, scancode);
+  keycode = scancode & 0xFF;
+  extended = scancode & 0x100;
+
+  flags = extended ? KBD_FLAGS_EXTENDED : 0;
+  flags |= key->type == GDK_KEY_PRESS ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
+
+  if (keycode)
+    input->KeyboardEvent (input, flags, keycode);
 }
 
 GdkPixbuf *

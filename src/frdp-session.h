@@ -84,8 +84,7 @@ void         frdp_session_mouse_pointer  (FrdpSession          *self,
                                           gboolean              enter);
 
 void         frdp_session_send_key       (FrdpSession          *self,
-                                          FrdpKeyEvent          event,
-                                          guint16               keycode);
+                                          GdkEventKey          *key);
 
 GdkPixbuf   *frdp_session_get_pixbuf     (FrdpSession          *self);
 /*FreeRDP fatal error codes*/
