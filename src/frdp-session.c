@@ -625,6 +625,8 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   settings->AllowFontSmoothing = TRUE;
   settings->AllowUnanouncedOrdersFromServer = TRUE;
+
+  freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 }
 
 static void
