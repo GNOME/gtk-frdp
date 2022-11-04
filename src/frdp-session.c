@@ -542,7 +542,8 @@ static void
 frdp_session_init_freerdp (FrdpSession *self)
 {
   FrdpSessionPrivate *priv = self->priv;
-  rdpSettings *settings;
+  rdpSettings        *settings;
+  gchar              *build_options;
 
   /* Setup FreeRDP session */
   priv->freerdp_session = freerdp_new ();
@@ -585,6 +586,16 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->ColorDepth = 32;
   settings->RedirectClipboard = FALSE;
   settings->SupportGraphicsPipeline = TRUE;
+
+  build_options = g_ascii_strup (freerdp_get_build_config (), -1);
+  if (g_strrstr (build_options, "WITH_GFX_H264=ON") != NULL) {
+    settings->GfxH264 = TRUE;
+    settings->GfxAVC444 = TRUE;
+  } else {
+    settings->GfxH264 = FALSE;
+    settings->GfxAVC444 = FALSE;
+  }
+  g_free (build_options);
 
   settings->KeyboardLayout = freerdp_keyboard_init (0);
 
