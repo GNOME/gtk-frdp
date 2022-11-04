@@ -170,9 +170,8 @@ static void
 create_cairo_surface (FrdpSession *self)
 {
   FrdpSessionPrivate *priv = self->priv;
-  rdpSettings *settings;
-  rdpGdi *gdi;
-  gint stride;
+  rdpGdi             *gdi;
+  gint                stride;
 
   if (priv->surface != NULL) {
     cairo_surface_mark_dirty (priv->surface);
@@ -181,12 +180,10 @@ create_cairo_surface (FrdpSession *self)
   }
 
   gdi = priv->freerdp_session->context->gdi;
-  settings = priv->freerdp_session->context->settings;
-  gdi_resize (gdi, settings->DesktopWidth, settings->DesktopHeight);
 
   gtk_widget_set_size_request (priv->display,
-                               settings->DesktopWidth,
-                               settings->DesktopHeight);
+                               gdi->width,
+                               gdi->height);
   stride = cairo_format_stride_for_width (priv->cairo_format, gdi->width);
   self->priv->surface =
       cairo_image_surface_create_for_data ((unsigned char*) gdi->primary_buffer,
@@ -195,6 +192,22 @@ create_cairo_surface (FrdpSession *self)
                                            gdi->height,
                                            stride);
   cairo_surface_flush (priv->surface);
+}
+
+static gboolean
+frdp_desktop_resize (rdpContext *context)
+{
+  FrdpSession *self = ((frdpContext *) context)->self;
+  rdpGdi      *gdi = context->gdi;
+
+  if (gdi_resize (gdi,
+                  context->settings->DesktopWidth,
+                  context->settings->DesktopHeight)) {
+    create_cairo_surface (self);
+    return TRUE;
+  } else {
+    return FALSE;
+  }
 }
 
 static void
@@ -434,11 +447,14 @@ frdp_post_connect (freerdp *freerdp_session)
 
   freerdp_session->update->BeginPaint = frdp_begin_paint;
   freerdp_session->update->EndPaint = frdp_end_paint;
+  freerdp_session->update->DesktopResize = frdp_desktop_resize;
 
   EventArgsInit(&e, "frdp");
 	e.width = settings->DesktopWidth;
 	e.height = settings->DesktopHeight;
 	PubSub_OnResizeWindow(context->pubSub, freerdp_session->context, &e);
+
+  create_cairo_surface (self);
 
   return TRUE;
 }
@@ -568,6 +584,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->RemoteFxCodec = TRUE;
   settings->ColorDepth = 32;
   settings->RedirectClipboard = FALSE;
+  settings->SupportGraphicsPipeline = TRUE;
 
   settings->KeyboardLayout = freerdp_keyboard_init (0);
 
