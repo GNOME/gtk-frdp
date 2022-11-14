@@ -216,7 +216,7 @@ frdp_session_configure_event (GtkWidget *widget,
 {
   FrdpSession *self = (FrdpSession*) user_data;
   FrdpSessionPrivate *priv = self->priv;
-  GtkScrolledWindow *scrolled;
+  GtkWidget *scrolled;
   rdpSettings *settings;
   rdpGdi *gdi;
   double width, height, widget_ratio, server_ratio;
@@ -282,7 +282,7 @@ frdp_session_draw (GtkWidget *widget,
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
 
-  frdp_display_set_scaling (self->priv->display, self->priv->scaling);
+  frdp_display_set_scaling (FRDP_DISPLAY (self->priv->display), self->priv->scaling);
 
   return TRUE;
 }
