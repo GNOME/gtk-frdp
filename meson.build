@@ -12,7 +12,7 @@ configure_file(
   configuration: config_h,
 )
 add_project_arguments([
-  '-I' + meson.build_root(),
+  '-I' + meson.current_build_dir(),
 ], language: 'c')
 
 package_subdir = get_option('package_subdir')
