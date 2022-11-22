@@ -1,7 +1,7 @@
 project('gtk-frdp',
   ['c', 'vala'],
   version: '0.2.0',
-  meson_version: '>= 0.40.0',
+  meson_version: '>= 0.50.0',
 )
 
 
