@@ -272,7 +272,11 @@ frdp_session_draw (GtkWidget *widget,
   if (!self->priv->is_connected)
     return FALSE;
 
-  create_cairo_surface (self);
+  if (self->priv->surface == NULL ||
+      (self->priv->freerdp_session->context->gdi->width != cairo_image_surface_get_width (self->priv->surface) ||
+       self->priv->freerdp_session->context->gdi->height != cairo_image_surface_get_height (self->priv->surface))) {
+    create_cairo_surface (self);
+  }
 
   if (self->priv->scaling) {
       cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
