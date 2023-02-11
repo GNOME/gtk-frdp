@@ -50,6 +50,7 @@ struct _FrdpSessionPrivate
   cairo_surface_t *surface;
   cairo_format_t cairo_format;
   gboolean scaling;
+  gboolean monitor_layout_supported;
   double scale;
   double offset_x;
   double offset_y;
@@ -78,7 +79,8 @@ enum
   PROP_USERNAME,
   PROP_PASSWORD,
   PROP_DISPLAY,
-  PROP_SCALING
+  PROP_SCALING,
+  PROP_MONITOR_LAYOUT_SUPPORTED
 };
 
 enum
@@ -87,6 +89,7 @@ enum
   RDP_CONNECTED,
   RDP_DISCONNECTED,
   RDP_AUTH_FAILURE,
+  RDP_CHANNEL_CONNECTED,
   LAST_SIGNAL
 };
 
@@ -220,6 +223,7 @@ frdp_session_configure_event (GtkWidget *widget,
   rdpSettings *settings;
   rdpGdi *gdi;
   double width, height, widget_ratio, server_ratio;
+  gboolean allow_resize;
 
   if (priv->freerdp_session == NULL)
     return;
@@ -238,19 +242,42 @@ frdp_session_configure_event (GtkWidget *widget,
 
   settings = priv->freerdp_session->settings;
 
-  if (priv->scaling) {
-    widget_ratio = height > 0 ? width / height : 1.0;
-    server_ratio = settings->DesktopHeight > 0 ? (double) settings->DesktopWidth / settings->DesktopHeight : 1.0;
+  g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
-    if (widget_ratio > server_ratio)
-      self->priv->scale = height / settings->DesktopHeight;
-    else
-      self->priv->scale = width / settings->DesktopWidth;
+  if (allow_resize) {
+    DISPLAY_CONTROL_MONITOR_LAYOUT *monitor_layout;
+    DispClientContext *disp = ((frdpContext *) priv->freerdp_session->context)->disp;
 
-    self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
-    self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
+    if (disp != NULL &&
+        (settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
+         settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled))) {
+      monitor_layout = g_malloc0 (sizeof (DISPLAY_CONTROL_MONITOR_LAYOUT));
+      if (monitor_layout != NULL) {
+        monitor_layout->Flags = DISPLAY_CONTROL_MONITOR_PRIMARY;
+        monitor_layout->Width = width;
+        monitor_layout->Height = height;
+        monitor_layout->Orientation = ORIENTATION_LANDSCAPE;
+        monitor_layout->DesktopScaleFactor = 100;
+        monitor_layout->DeviceScaleFactor = 100;
+        disp->SendMonitorLayout (disp, 1, monitor_layout);
+        g_free (monitor_layout);
+      }
+    }
   } else {
-    gtk_widget_set_size_request (priv->display, gdi->width, gdi->height);
+    if (priv->scaling) {
+        widget_ratio = height > 0 ? width / height : 1.0;
+        server_ratio = settings->DesktopHeight > 0 ? (double) settings->DesktopWidth / settings->DesktopHeight : 1.0;
+
+        if (widget_ratio > server_ratio)
+          self->priv->scale = height / settings->DesktopHeight;
+        else
+          self->priv->scale = width / settings->DesktopWidth;
+
+        self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
+        self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
+    } else {
+      gtk_widget_set_size_request (priv->display, gdi->width, gdi->height);
+    }
   }
 }
 
@@ -550,7 +577,9 @@ frdp_session_init_freerdp (FrdpSession *self)
 {
   FrdpSessionPrivate *priv = self->priv;
   rdpSettings        *settings;
+  gchar              *collections[1];
   gchar              *build_options;
+  int                 count = 1;
 
   /* Setup FreeRDP session */
   priv->freerdp_session = freerdp_new ();
@@ -593,6 +622,9 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->ColorDepth = 32;
   settings->RedirectClipboard = FALSE;
   settings->SupportGraphicsPipeline = TRUE;
+
+  collections[0] = "disp";
+  freerdp_client_add_dynamic_channel (settings, count, collections);
 
   build_options = g_ascii_strup (freerdp_get_build_config (), -1);
   if (g_strrstr (build_options, "WITH_GFX_H264=ON") != NULL) {
@@ -702,6 +734,9 @@ frdp_session_get_property (GObject    *object,
       case PROP_SCALING:
         g_value_set_boolean (value, self->priv->scaling);
         break;
+      case PROP_MONITOR_LAYOUT_SUPPORTED:
+        g_value_set_boolean (value, self->priv->monitor_layout_supported);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -738,6 +773,10 @@ frdp_session_set_property (GObject      *object,
         break;
       case PROP_SCALING:
         frdp_session_set_scaling (self, g_value_get_boolean (value));
+        break;
+      case PROP_MONITOR_LAYOUT_SUPPORTED:
+        self->priv->monitor_layout_supported = g_value_get_boolean (value);
+        g_object_notify (G_OBJECT (self), "monitor-layout-supported");
         break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -810,6 +849,14 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                                          "scaling",
                                                          "scaling",
                                                          TRUE,
+                                                         G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_MONITOR_LAYOUT_SUPPORTED,
+                                   g_param_spec_boolean ("monitor-layout-supported",
+                                                         "monitor-layout-supported",
+                                                         "monitor-layout-supported",
+                                                         FALSE,
                                                          G_PARAM_READWRITE));
 
   signals[RDP_ERROR] = g_signal_new ("rdp-error",

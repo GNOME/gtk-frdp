@@ -20,9 +20,14 @@
 
 #include "frdp-session.h"
 
+#include <freerdp/channels/disp.h>
+
 struct _FrdpDisplayPrivate
 {
   FrdpSession *session;
+
+  gboolean     allow_resize;
+  gboolean     resize_supported;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpDisplay, frdp_display, GTK_TYPE_DRAWING_AREA)
@@ -32,7 +37,9 @@ enum
   PROP_O = 0,
   PROP_USERNAME,
   PROP_PASSWORD,
-  PROP_SCALING
+  PROP_SCALING,
+  PROP_ALLOW_RESIZE,
+  PROP_RESIZE_SUPPORTED
 };
 
 enum
@@ -46,6 +53,9 @@ enum
 };
 
 static guint signals[LAST_SIGNAL];
+
+static void frdp_display_set_allow_resize (FrdpDisplay *display,
+                                           gboolean     allow_resize);
 
 static gboolean
 frdp_display_is_initialized (FrdpDisplay *self)
@@ -287,6 +297,12 @@ frdp_display_get_property (GObject      *object,
         g_object_get (session, "scaling", &str_property, NULL);
         g_value_set_boolean (value, (gboolean)GPOINTER_TO_INT (str_property));
         break;
+      case PROP_ALLOW_RESIZE:
+        g_value_set_boolean (value, priv->allow_resize);
+        break;
+      case PROP_RESIZE_SUPPORTED:
+        g_value_set_boolean (value, priv->resize_supported);
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -313,6 +329,13 @@ frdp_display_set_property (GObject      *object,
         break;
       case PROP_SCALING:
         frdp_display_set_scaling (self, g_value_get_boolean (value));
+        break;
+      case PROP_ALLOW_RESIZE:
+        frdp_display_set_allow_resize (self, g_value_get_boolean (value));
+        break;
+      case PROP_RESIZE_SUPPORTED:
+        priv->resize_supported = g_value_get_boolean (value);
+        g_object_notify (G_OBJECT (self), "resize-supported");
         break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -360,6 +383,22 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                                          "scaling",
                                                          "scaling",
                                                          TRUE,
+                                                         G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_ALLOW_RESIZE,
+                                   g_param_spec_boolean ("allow-resize",
+                                                         "allow-resize",
+                                                         "allow-resize",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_RESIZE_SUPPORTED,
+                                   g_param_spec_boolean ("resize-supported",
+                                                         "resize-supported",
+                                                         "resize-supported",
+                                                         FALSE,
                                                          G_PARAM_READWRITE));
 
   signals[RDP_ERROR] = g_signal_new ("rdp-error",
@@ -413,6 +452,8 @@ frdp_display_init (FrdpDisplay *self)
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 
   priv->session = frdp_session_new (self);
+
+  g_object_bind_property (priv->session, "monitor-layout-supported", self, "resize-supported", 0);
 }
 
 /**
@@ -501,6 +542,26 @@ frdp_display_set_scaling (FrdpDisplay *display,
   g_object_set (priv->session, "scaling", scaling, NULL);
 
   if (scaling) {
+    gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
+
+    gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+    gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+  }
+
+  gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
+                              gtk_widget_get_allocated_width (GTK_WIDGET (display)),
+                              gtk_widget_get_allocated_height (GTK_WIDGET (display)));
+}
+
+static void
+frdp_display_set_allow_resize (FrdpDisplay *display,
+                               gboolean     allow_resize)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  priv->allow_resize = allow_resize;
+
+  if (allow_resize) {
     gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
 
     gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);

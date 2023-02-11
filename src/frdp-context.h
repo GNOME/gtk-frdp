@@ -19,6 +19,7 @@
 #pragma once
 
 #include <freerdp/freerdp.h>
+#include <freerdp/client/disp.h>
 #include <gtk/gtk.h>
 
 G_BEGIN_DECLS
@@ -29,6 +30,7 @@ struct frdp_context
 {
   rdpContext context;
   FrdpSession *self;
+  DispClientContext *disp;
 };
 typedef struct frdp_context frdpContext;
 

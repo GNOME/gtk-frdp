@@ -22,6 +22,7 @@
 
 #include <freerdp/gdi/video.h>
 #include <freerdp/gdi/gfx.h>
+#include <freerdp/channels/disp.h>
 
 #include "frdp-channels.h"
 #include "frdp-context.h"
@@ -36,7 +37,8 @@ void frdp_OnChannelConnectedEventHandler(void* context, ChannelConnectedEventArg
 	}
   else if (strcmp(e->name, DISP_DVC_CHANNEL_NAME) == 0)
 	{
-		// TODO Display resize channel
+		ctx->disp = (DispClientContext *) e->pInterface;
+		g_object_set (ctx->self, "monitor-layout-supported", ctx->disp != NULL, NULL);
 	}
 	else if (strcmp(e->name, TSMF_DVC_CHANNEL_NAME) == 0)
 	{
@@ -82,7 +84,6 @@ void frdp_OnChannelDisconnectedEventHandler(void* context, ChannelDisconnectedEv
 	}
 	else if (strcmp(e->name, DISP_DVC_CHANNEL_NAME) == 0)
 	{
-		// TODO Display resize channel
 	}
 	else if (strcmp(e->name, TSMF_DVC_CHANNEL_NAME) == 0)
 	{
