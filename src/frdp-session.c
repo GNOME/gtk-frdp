@@ -1,6 +1,7 @@
 /* frdp-session.c
  *
  * Copyright (C) 2018 Felipe Borges <felipeborges@gnome.org>
+ * Copyright (C) 2019 Armin Novak <akallabeth@posteo.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +22,21 @@
 #include <freerdp/locale/keyboard.h>
 #include <freerdp/freerdp.h>
 #include <freerdp/gdi/gdi.h>
+#include <freerdp/gdi/video.h>
+#include <freerdp/gdi/gfx.h>
 #include <freerdp/client/channels.h>
 #include <freerdp/client/cmdline.h>
+#include <freerdp/client/channels.h>
+#include <freerdp/client/rdpei.h>
+#include <freerdp/client/tsmf.h>
+#include <freerdp/client/rail.h>
+#include <freerdp/client/cliprdr.h>
+#include <freerdp/client/rdpgfx.h>
+#include <freerdp/client/encomsp.h>
+#include <freerdp/client/disp.h>
+#include <freerdp/client/geometry.h>
+#include <freerdp/client/video.h>
+#include <freerdp/channels/disp.h>
 #include <gdk/gdk.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
@@ -30,7 +44,6 @@
 
 #include "frdp-session.h"
 #include "frdp-context.h"
-#include "frdp-channels.h"
 
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
@@ -358,6 +371,65 @@ frdp_authenticate (freerdp  *freerdp_session,
                                     domain);
 }
 
+static void
+frdp_on_channel_connected_event_handler (void                      *context,
+                                         ChannelConnectedEventArgs *e)
+{
+  frdpContext *ctx = (frdpContext *) context;
+
+  if (strcmp (e->name, RDPEI_DVC_CHANNEL_NAME) == 0) {
+    // TODO Touch input redirection
+  } else if (strcmp (e->name, DISP_DVC_CHANNEL_NAME) == 0) {
+    ctx->disp = (DispClientContext *) e->pInterface;
+    g_object_set (ctx->self, "monitor-layout-supported", ctx->disp != NULL, NULL);
+  } else if (strcmp (e->name, TSMF_DVC_CHANNEL_NAME) == 0) {
+    // TODO Old windows 7 multimedia redirection
+  } else if (strcmp (e->name, RDPGFX_DVC_CHANNEL_NAME) == 0) {
+    gdi_graphics_pipeline_init (ctx->context.gdi, (RdpgfxClientContext *) e->pInterface);
+  } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
+    // TODO Remote application
+  } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
+    // TODO Clipboard redirection channel
+  } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
+    // TODO Multiparty channel
+  } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_geometry_init (ctx->context.gdi, (GeometryClientContext *) e->pInterface);
+  } else if (strcmp (e->name, VIDEO_CONTROL_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_control_init (ctx->context.gdi, (VideoClientContext *) e->pInterface);
+  } else if (strcmp (e->name, VIDEO_DATA_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_data_init (ctx->context.gdi, (VideoClientContext *) e->pInterface);
+  }
+}
+
+static void
+frdp_on_channel_disconnected_event_handler (void                         *context,
+                                            ChannelDisconnectedEventArgs *e)
+{
+  frdpContext *ctx = (frdpContext *) context;
+
+  if (strcmp (e->name, RDPEI_DVC_CHANNEL_NAME) == 0) {
+    // TODO Touch input redirection
+  } else if (strcmp (e->name, DISP_DVC_CHANNEL_NAME) == 0) {
+    ctx->disp = NULL;
+  } else if (strcmp (e->name, TSMF_DVC_CHANNEL_NAME) == 0) {
+    // TODO Old windows 7 multimedia redirection
+  } else if (strcmp (e->name, RDPGFX_DVC_CHANNEL_NAME) == 0) {
+    gdi_graphics_pipeline_uninit (ctx->context.gdi, (RdpgfxClientContext *) e->pInterface);
+  } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
+    // TODO Remote application
+  } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
+    // TODO Clipboard redirection channel
+  } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
+    // TODO Multiparty channel
+  } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_geometry_uninit (ctx->context.gdi, (GeometryClientContext *) e->pInterface);
+  } else if (strcmp (e->name, VIDEO_CONTROL_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_control_uninit (ctx->context.gdi, (VideoClientContext *) e->pInterface);
+  } else if (strcmp (e->name, VIDEO_DATA_DVC_CHANNEL_NAME) == 0) {
+    gdi_video_data_uninit (ctx->context.gdi, (VideoClientContext *) e->pInterface);
+  }
+}
+
 static gboolean
 frdp_pre_connect (freerdp *freerdp_session)
 {
@@ -389,14 +461,13 @@ frdp_pre_connect (freerdp *freerdp_session)
   settings->OrderSupport[NEG_ELLIPSE_SC_INDEX] = FALSE;
   settings->OrderSupport[NEG_ELLIPSE_CB_INDEX] = FALSE;
 
-  PubSub_SubscribeChannelConnected(context->pubSub,
-	                                 frdp_OnChannelConnectedEventHandler);
-	PubSub_SubscribeChannelDisconnected(context->pubSub,
-	                                    frdp_OnChannelDisconnectedEventHandler);
+  PubSub_SubscribeChannelConnected (context->pubSub,
+                                    frdp_on_channel_connected_event_handler);
+  PubSub_SubscribeChannelDisconnected (context->pubSub,
+                                       frdp_on_channel_disconnected_event_handler);
 
-  if (!freerdp_client_load_addins(context->channels,
-	                                settings))
-		return FALSE;
+  if (!freerdp_client_load_addins (context->channels, settings))
+    return FALSE;
 
   return TRUE;
 }
@@ -493,19 +564,20 @@ frdp_post_connect (freerdp *freerdp_session)
   return TRUE;
 }
 
-static void frdp_post_disconnect(freerdp* instance)
+static void
+frdp_post_disconnect (freerdp *instance)
 {
-	rdpContext* context;
+  rdpContext *context;
 
-	if (!instance || !instance->context)
-		return;
+  if (!instance || !instance->context)
+    return;
 
-	context = instance->context;
-	PubSub_UnsubscribeChannelConnected(context->pubSub,
-	                                   frdp_OnChannelConnectedEventHandler);
-	PubSub_UnsubscribeChannelDisconnected(context->pubSub,
-	                                      frdp_OnChannelDisconnectedEventHandler);
-	gdi_free(instance);
+  context = instance->context;
+  PubSub_UnsubscribeChannelConnected (context->pubSub,
+                                      frdp_on_channel_connected_event_handler);
+  PubSub_UnsubscribeChannelDisconnected (context->pubSub,
+                                         frdp_on_channel_disconnected_event_handler);
+  gdi_free (instance);
 }
 
 static gboolean

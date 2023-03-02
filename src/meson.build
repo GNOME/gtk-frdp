@@ -6,7 +6,6 @@ gtk_frdp_public_sources = [
 ]
 
 gtk_frdp_private_sources = [
-  'frdp-channels.c'
 ]
 
 gtk_frdp_public_headers = [
@@ -16,7 +15,6 @@ gtk_frdp_public_headers = [
 ]
 
 gtk_frdp_private_headers = [
-  'frdp-channels.h',
   'frdp-context.h'
 ]
 
