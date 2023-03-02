@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2018 Felipe Borges <felipeborges@gnome.org>
  * Copyright (C) 2019 Armin Novak <akallabeth@posteo.net>
+ * Copyright (C) 2023 Marek Kasik <mkasik@redhat.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,6 +45,7 @@
 
 #include "frdp-session.h"
 #include "frdp-context.h"
+#include "frdp-channel-display-control.h"
 
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
@@ -63,7 +65,6 @@ struct _FrdpSessionPrivate
   cairo_surface_t *surface;
   cairo_format_t cairo_format;
   gboolean scaling;
-  gboolean monitor_layout_supported;
   double scale;
   double offset_x;
   double offset_y;
@@ -80,6 +81,10 @@ struct _FrdpSessionPrivate
   gboolean show_cursor;
   gboolean cursor_null;
   frdpPointer *cursor;
+
+  /* Channels */
+  FrdpChannelDisplayControl *display_control_channel;
+  gboolean                   monitor_layout_supported;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -258,23 +263,11 @@ frdp_session_configure_event (GtkWidget *widget,
   g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
   if (allow_resize) {
-    DISPLAY_CONTROL_MONITOR_LAYOUT *monitor_layout;
-    DispClientContext *disp = ((frdpContext *) priv->freerdp_session->context)->disp;
-
-    if (disp != NULL &&
-        (settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
-         settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled))) {
-      monitor_layout = g_malloc0 (sizeof (DISPLAY_CONTROL_MONITOR_LAYOUT));
-      if (monitor_layout != NULL) {
-        monitor_layout->Flags = DISPLAY_CONTROL_MONITOR_PRIMARY;
-        monitor_layout->Width = width;
-        monitor_layout->Height = height;
-        monitor_layout->Orientation = ORIENTATION_LANDSCAPE;
-        monitor_layout->DesktopScaleFactor = 100;
-        monitor_layout->DeviceScaleFactor = 100;
-        disp->SendMonitorLayout (disp, 1, monitor_layout);
-        g_free (monitor_layout);
-      }
+    if (settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
+        settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled)) {
+      frdp_channel_display_control_resize_display (priv->display_control_channel,
+                                                   width,
+                                                   height);
     }
   } else {
     if (priv->scaling) {
@@ -372,16 +365,32 @@ frdp_authenticate (freerdp  *freerdp_session,
 }
 
 static void
+caps_set (FrdpChannelDisplayControl *channel,
+          gpointer                   user_data)
+{
+  FrdpSession *session = user_data;
+
+  g_object_set (G_OBJECT (session), "monitor-layout-supported", TRUE, NULL);
+}
+
+static void
 frdp_on_channel_connected_event_handler (void                      *context,
                                          ChannelConnectedEventArgs *e)
 {
-  frdpContext *ctx = (frdpContext *) context;
+  frdpContext        *ctx = (frdpContext *) context;
+  FrdpSession        *session = ctx->self;
+  FrdpSessionPrivate *priv = frdp_session_get_instance_private (session);
 
   if (strcmp (e->name, RDPEI_DVC_CHANNEL_NAME) == 0) {
     // TODO Touch input redirection
   } else if (strcmp (e->name, DISP_DVC_CHANNEL_NAME) == 0) {
-    ctx->disp = (DispClientContext *) e->pInterface;
-    g_object_set (ctx->self, "monitor-layout-supported", ctx->disp != NULL, NULL);
+    g_clear_object (&priv->display_control_channel);
+
+    priv->display_control_channel = g_object_new (FRDP_TYPE_CHANNEL_DISPLAY_CONTROL,
+                                                  "session", session,
+                                                  "display-client-context", (DispClientContext *) e->pInterface,
+                                                  NULL);
+    g_signal_connect (priv->display_control_channel, "caps-set", G_CALLBACK (caps_set), session);
   } else if (strcmp (e->name, TSMF_DVC_CHANNEL_NAME) == 0) {
     // TODO Old windows 7 multimedia redirection
   } else if (strcmp (e->name, RDPGFX_DVC_CHANNEL_NAME) == 0) {
@@ -405,12 +414,14 @@ static void
 frdp_on_channel_disconnected_event_handler (void                         *context,
                                             ChannelDisconnectedEventArgs *e)
 {
-  frdpContext *ctx = (frdpContext *) context;
+  frdpContext        *ctx = (frdpContext *) context;
+  FrdpSession        *session = ctx->self;
+  FrdpSessionPrivate *priv = frdp_session_get_instance_private (session);
 
   if (strcmp (e->name, RDPEI_DVC_CHANNEL_NAME) == 0) {
     // TODO Touch input redirection
   } else if (strcmp (e->name, DISP_DVC_CHANNEL_NAME) == 0) {
-    ctx->disp = NULL;
+    g_clear_object (&priv->display_control_channel);
   } else if (strcmp (e->name, TSMF_DVC_CHANNEL_NAME) == 0) {
     // TODO Old windows 7 multimedia redirection
   } else if (strcmp (e->name, RDPGFX_DVC_CHANNEL_NAME) == 0) {

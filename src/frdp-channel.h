@@ -1,6 +1,6 @@
-/* frdp-context.h
+/* frdp-channel.h
  *
- * Copyright (C) 2019 Armin Novak <akallabeth@posteo.net>
+ * Copyright (C) 2023 Marek Kasik <mkasik@redhat.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,19 +18,19 @@
 
 #pragma once
 
-#include <freerdp/freerdp.h>
-#include <freerdp/client/disp.h>
 #include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
-typedef struct _FrdpSession FrdpSession;
+#define FRDP_TYPE_CHANNEL (frdp_channel_get_type())
 
-struct frdp_context
+G_DECLARE_DERIVABLE_TYPE (FrdpChannel, frdp_channel, FRDP, CHANNEL, GObject)
+
+typedef struct _FrdpChannelClass FrdpChannelClass;
+
+struct _FrdpChannelClass
 {
-  rdpContext context;
-  FrdpSession *self;
+  GObjectClass parent_class;
 };
-typedef struct frdp_context frdpContext;
 
 G_END_DECLS
