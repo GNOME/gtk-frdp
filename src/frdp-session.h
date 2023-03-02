@@ -25,7 +25,7 @@ G_BEGIN_DECLS
 
 #define FRDP_TYPE_SESSION (frdp_session_get_type())
 
-G_DECLARE_FINAL_TYPE (FrdpSession, frdp_session, FRDP_SESSION, SESSION, GObject)
+G_DECLARE_FINAL_TYPE (FrdpSession, frdp_session, FRDP, SESSION, GObject)
 
 typedef struct _FrdpSessionPrivate FrdpSessionPrivate;
 

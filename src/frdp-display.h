@@ -23,9 +23,8 @@
 G_BEGIN_DECLS
 
 #define FRDP_TYPE_DISPLAY (frdp_display_get_type())
-#define FRDP_DISPLAY(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), FRDP_TYPE_DISPLAY, FrdpDisplay))
 
-G_DECLARE_DERIVABLE_TYPE (FrdpDisplay, frdp_display, FRDP_DISPLAY, DISPLAY, GtkDrawingArea)
+G_DECLARE_DERIVABLE_TYPE (FrdpDisplay, frdp_display, FRDP, DISPLAY, GtkDrawingArea)
 
 typedef struct _FrdpDisplayPrivate FrdpDisplayPrivate;
 

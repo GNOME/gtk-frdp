@@ -594,7 +594,7 @@ frdp_display_authenticate (FrdpDisplay *self,
                            gchar **password,
                            gchar **domain)
 {
-  FrdpDisplayClass *klass =  FRDP_DISPLAY_DISPLAY_GET_CLASS (self);
+  FrdpDisplayClass *klass = FRDP_DISPLAY_GET_CLASS (self);
 
   g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
 
