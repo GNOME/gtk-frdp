@@ -1,17 +1,23 @@
 api_version = '0.2'
 
-gtk_frdp_sources = [
+gtk_frdp_public_sources = [
   'frdp-display.c',
-  'frdp-channels.c',
-  'frdp-session.c',
+  'frdp-session.c'
 ]
 
-gtk_frdp_headers = [
+gtk_frdp_private_sources = [
+  'frdp-channels.c'
+]
+
+gtk_frdp_public_headers = [
   'frdp-display.h',
-  'frdp-channels.h',
   'frdp-session.h',
-  'frdp-context.h',
-  'gtk-frdp.h',
+  'gtk-frdp.h'
+]
+
+gtk_frdp_private_headers = [
+  'frdp-channels.h',
+  'frdp-context.h'
 ]
 
 version_split = meson.project_version().split('.')
@@ -50,23 +56,23 @@ gtk_frdp_deps = [
 ]
 
 gtk_frdp_lib = shared_library('gtk-frdp-' + api_version,
-  gtk_frdp_sources,
+  gtk_frdp_public_sources + gtk_frdp_private_sources,
   dependencies: gtk_frdp_deps,
   install: true,
   install_dir: libdir
 )
 
 gtk_frdp_dep = declare_dependency(
-  sources: gtk_frdp_headers,
+  sources: gtk_frdp_public_headers,
   dependencies: gtk_frdp_deps,
   link_with: gtk_frdp_lib,
   include_directories: include_directories('.'),
 )
 
-install_headers(gtk_frdp_headers, subdir: gtk_frdp_header_subdir)
+install_headers(gtk_frdp_public_headers, subdir: gtk_frdp_header_subdir)
 
 gtk_frdp_gir = gnome.generate_gir(gtk_frdp_lib,
-  sources: gtk_frdp_sources + gtk_frdp_headers,
+  sources: gtk_frdp_public_sources + gtk_frdp_public_headers,
   nsversion: api_version,
   namespace: 'GtkFrdp',
   symbol_prefix: 'frdp',
