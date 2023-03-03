@@ -18,6 +18,7 @@
 
 #include "frdp-channel-display-control.h"
 
+#include <freerdp/freerdp.h>
 #include <freerdp/client/disp.h>
 
 typedef struct
@@ -212,7 +213,8 @@ frdp_channel_display_control_resize_display (FrdpChannelDisplayControl *self,
                                              guint                      height)
 {
   FrdpChannelDisplayControlPrivate *priv = frdp_channel_display_control_get_instance_private (self);
-  DISPLAY_CONTROL_MONITOR_LAYOUT   *monitor_layout;
+  DISPLAY_CONTROL_MONITOR_LAYOUT    monitor_layout = {};
+  guint                             ret_value;
 
   if (priv->display_client_context != NULL &&
       priv->caps_set &&
@@ -222,19 +224,16 @@ frdp_channel_display_control_resize_display (FrdpChannelDisplayControl *self,
       height >= DISPLAY_CONTROL_MIN_MONITOR_HEIGHT &&
       height <= DISPLAY_CONTROL_MAX_MONITOR_HEIGHT) {
 
-    monitor_layout = g_new0 (DISPLAY_CONTROL_MONITOR_LAYOUT, 1);
-    if (monitor_layout != NULL) {
-      monitor_layout->Flags = DISPLAY_CONTROL_MONITOR_PRIMARY;
-      monitor_layout->Width = width;
-      monitor_layout->Height = height;
-      monitor_layout->Orientation = ORIENTATION_LANDSCAPE;
-      monitor_layout->DesktopScaleFactor = 100;
-      monitor_layout->DeviceScaleFactor = 100;
+    monitor_layout.Flags = DISPLAY_CONTROL_MONITOR_PRIMARY;
+    monitor_layout.Width = width;
+    monitor_layout.Height = height;
+    monitor_layout.Orientation = ORIENTATION_LANDSCAPE;
+    monitor_layout.DesktopScaleFactor = 100;
+    monitor_layout.DeviceScaleFactor = 100;
 
-      priv->display_client_context->SendMonitorLayout (priv->display_client_context, 1, monitor_layout);
-
-      g_free (monitor_layout);
-    }
+    ret_value = priv->display_client_context->SendMonitorLayout (priv->display_client_context, 1, &monitor_layout);
+    if (ret_value != CHANNEL_RC_OK)
+      g_warning ("Changing of monitor layout failed with Win32 error code 0x%X", ret_value);
   } else {
     if (priv->display_client_context == NULL)
       g_warning ("DispClientContext has not been set yet!");
