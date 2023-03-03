@@ -214,19 +214,27 @@ frdp_channel_display_control_resize_display (FrdpChannelDisplayControl *self,
 {
   FrdpChannelDisplayControlPrivate *priv = frdp_channel_display_control_get_instance_private (self);
   DISPLAY_CONTROL_MONITOR_LAYOUT    monitor_layout = {};
+  guint32                           request_width, request_height;
   guint                             ret_value;
+
+  request_width = CLAMP (width,
+                         DISPLAY_CONTROL_MIN_MONITOR_WIDTH,
+                         DISPLAY_CONTROL_MAX_MONITOR_WIDTH);
+
+  request_height = CLAMP (height,
+                          DISPLAY_CONTROL_MIN_MONITOR_WIDTH,
+                          DISPLAY_CONTROL_MAX_MONITOR_WIDTH);
+
+  if (request_width % 2 == 1)
+    request_width--;
 
   if (priv->display_client_context != NULL &&
       priv->caps_set &&
-      (width * height) <= (priv->max_num_monitors * priv->max_monitor_area_factor_a * priv->max_monitor_area_factor_b) &&
-      width >= DISPLAY_CONTROL_MIN_MONITOR_WIDTH &&
-      width <= DISPLAY_CONTROL_MAX_MONITOR_WIDTH &&
-      height >= DISPLAY_CONTROL_MIN_MONITOR_HEIGHT &&
-      height <= DISPLAY_CONTROL_MAX_MONITOR_HEIGHT) {
+      (request_width * request_height) <= (priv->max_num_monitors * priv->max_monitor_area_factor_a * priv->max_monitor_area_factor_b)) {
 
     monitor_layout.Flags = DISPLAY_CONTROL_MONITOR_PRIMARY;
-    monitor_layout.Width = width;
-    monitor_layout.Height = height;
+    monitor_layout.Width = request_width;
+    monitor_layout.Height = request_height;
     monitor_layout.Orientation = ORIENTATION_LANDSCAPE;
     monitor_layout.DesktopScaleFactor = 100;
     monitor_layout.DeviceScaleFactor = 100;
@@ -241,19 +249,7 @@ frdp_channel_display_control_resize_display (FrdpChannelDisplayControl *self,
     if (!priv->caps_set)
       g_warning ("DisplayControlCaps() has not been called yet!");
 
-    if ((width * height) > (priv->max_num_monitors * priv->max_monitor_area_factor_a * priv->max_monitor_area_factor_b))
+    if ((request_width * request_height) > (priv->max_num_monitors * priv->max_monitor_area_factor_a * priv->max_monitor_area_factor_b))
       g_warning ("Requested display area is larger than allowed maximum area!");
-
-    if (width < DISPLAY_CONTROL_MIN_MONITOR_WIDTH)
-      g_warning ("Requested display width is lower than minimum allowed width!");
-
-    if (width > DISPLAY_CONTROL_MAX_MONITOR_WIDTH)
-      g_warning ("Requested display width is higher than maximum allowed width!");
-
-    if (height < DISPLAY_CONTROL_MIN_MONITOR_HEIGHT)
-      g_warning ("Requested display height is lower than minimum allowed height!");
-
-    if (height > DISPLAY_CONTROL_MAX_MONITOR_HEIGHT)
-      g_warning ("Requested display height is higher than maximum allowed height!");
   }
 }
