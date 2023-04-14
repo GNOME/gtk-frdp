@@ -263,8 +263,9 @@ frdp_session_configure_event (GtkWidget *widget,
   g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
   if (allow_resize) {
-    if (settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
-        settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled)) {
+    if ((settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
+         settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled)) &&
+        priv->display_control_channel != NULL) {
       frdp_channel_display_control_resize_display (priv->display_control_channel,
                                                    width,
                                                    height);
