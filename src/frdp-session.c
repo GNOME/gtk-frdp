@@ -289,6 +289,34 @@ frdp_session_configure_event (GtkWidget *widget,
 }
 
 static void
+frdp_session_resize_supported_changed (FrdpDisplay *display,
+                                       GParamSpec  *pspec,
+                                       gpointer     user_data)
+{
+  FrdpSession        *self = user_data;
+  FrdpSessionPrivate *priv = frdp_session_get_instance_private (self);
+  GtkWidget          *scrolled;
+  gboolean            resize_supported, allow_resize;
+  gint                width, height;
+
+  g_object_get (G_OBJECT (display),
+                "resize-supported", &resize_supported,
+                "allow-resize", &allow_resize,
+                NULL);
+
+  if (resize_supported && allow_resize)
+    {
+      scrolled = gtk_widget_get_ancestor (GTK_WIDGET (display), GTK_TYPE_SCROLLED_WINDOW);
+      width = gtk_widget_get_allocated_width (scrolled);
+      height = gtk_widget_get_allocated_height (scrolled);
+
+      frdp_channel_display_control_resize_display (priv->display_control_channel,
+                                                   width,
+                                                   height);
+    }
+}
+
+static void
 frdp_session_set_scaling (FrdpSession *self,
                           gboolean     scaling)
 {
@@ -783,6 +811,8 @@ frdp_session_connect_thread (GTask        *task,
                     G_CALLBACK (frdp_session_draw), self);
   g_signal_connect (self->priv->display, "configure-event",
                     G_CALLBACK (frdp_session_configure_event), self);
+  g_signal_connect (self->priv->display, "notify::resize-supported",
+                    G_CALLBACK (frdp_session_resize_supported_changed), self);
 
   self->priv->update_id = g_idle_add ((GSourceFunc) update, self);
 
