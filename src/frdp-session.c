@@ -46,6 +46,7 @@
 #include "frdp-session.h"
 #include "frdp-context.h"
 #include "frdp-channel-display-control.h"
+#include "frdp-channel-clipboard.h"
 
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
@@ -84,6 +85,7 @@ struct _FrdpSessionPrivate
 
   /* Channels */
   FrdpChannelDisplayControl *display_control_channel;
+  FrdpChannelClipboard      *clipboard_channel;
   gboolean                   monitor_layout_supported;
 };
 
@@ -427,7 +429,12 @@ frdp_on_channel_connected_event_handler (void                      *context,
   } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
     // TODO Remote application
   } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
-    // TODO Clipboard redirection channel
+    g_clear_object (&priv->clipboard_channel);
+
+    priv->clipboard_channel = g_object_new (FRDP_TYPE_CHANNEL_CLIPBOARD,
+                                            "session", session,
+                                            "cliprdr-client-context", (CliprdrClientContext *) e->pInterface,
+                                            NULL);
   } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
     // TODO Multiparty channel
   } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
@@ -458,7 +465,7 @@ frdp_on_channel_disconnected_event_handler (void                         *contex
   } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
     // TODO Remote application
   } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
-    // TODO Clipboard redirection channel
+    g_clear_object (&priv->clipboard_channel);
   } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
     // TODO Multiparty channel
   } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
@@ -732,7 +739,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->SupportDisplayControl = TRUE;
   settings->RemoteFxCodec = TRUE;
   settings->ColorDepth = 32;
-  settings->RedirectClipboard = FALSE;
+  settings->RedirectClipboard = TRUE;
   settings->SupportGraphicsPipeline = TRUE;
 
   collections[0] = "disp";

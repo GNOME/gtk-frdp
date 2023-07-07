@@ -7,7 +7,8 @@ gtk_frdp_public_sources = [
 
 gtk_frdp_private_sources = [
   'frdp-channel.c',
-  'frdp-channel-display-control.c'
+  'frdp-channel-display-control.c',
+  'frdp-channel-clipboard.c'
 ]
 
 gtk_frdp_public_headers = [
@@ -19,6 +20,7 @@ gtk_frdp_public_headers = [
 gtk_frdp_private_headers = [
   'frdp-channel.h',
   'frdp-channel-display-control.h',
+  'frdp-channel-clipboard.h',
   'frdp-context.h'
 ]
 
