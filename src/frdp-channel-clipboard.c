@@ -208,11 +208,7 @@ send_client_capabilities (FrdpChannelClipboard *self)
                                         CB_FILECLIP_NO_FILE_PATHS |
                                         CB_HUGE_FILE_SUPPORT_ENABLED;
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientCapabilities != NULL)
-    return priv->cliprdr_client_context->ClientCapabilities (priv->cliprdr_client_context, &capabilities);
-  else
-    return CHANNEL_RC_NOT_INITIALIZED;
+  return priv->cliprdr_client_context->ClientCapabilities (priv->cliprdr_client_context, &capabilities);
 }
 
 static guint
@@ -267,9 +263,7 @@ send_client_format_list (FrdpChannelClipboard *self)
   format_list.numFormats = j;
   format_list.formats = formats;
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientFormatList != NULL)
-    ret = priv->cliprdr_client_context->ClientFormatList (priv->cliprdr_client_context, &format_list);
+  ret = priv->cliprdr_client_context->ClientFormatList (priv->cliprdr_client_context, &format_list);
 
   if (formats != NULL) {
     for (k = 0; k < formats_count; k++) {
@@ -323,11 +317,7 @@ send_data_request (FrdpChannelClipboard *self,
   new_request = g_new0 (CLIPRDR_FORMAT_DATA_REQUEST, 1);
   new_request->requestedFormatId = format_id;
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientFormatDataRequest != NULL)
-    return priv->cliprdr_client_context->ClientFormatDataRequest (priv->cliprdr_client_context, new_request);
-  else
-    return CHANNEL_RC_NOT_INITIALIZED;
+  return priv->cliprdr_client_context->ClientFormatDataRequest (priv->cliprdr_client_context, new_request);
 }
 
 static FrdpClipboardRequest *
@@ -409,11 +399,7 @@ send_client_format_list_response (FrdpChannelClipboard *self,
   response.msgFlags = status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
   response.dataLen = 0;
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientFormatListResponse != NULL)
-    return priv->cliprdr_client_context->ClientFormatListResponse (priv->cliprdr_client_context, &response);
-  else
-    return CHANNEL_RC_NOT_INITIALIZED;
+  return priv->cliprdr_client_context->ClientFormatListResponse (priv->cliprdr_client_context, &response);
 }
 
 static gboolean
@@ -537,10 +523,7 @@ _gtk_clipboard_get_func (GtkClipboard     *clipboard,
               file_contents_request.nPositionLow = 0;
               file_contents_request.haveClipDataId = FALSE;
 
-              if (priv->cliprdr_client_context != NULL &&
-                  priv->cliprdr_client_context->ClientFileContentsRequest != NULL) {
-                priv->cliprdr_client_context->ClientFileContentsRequest (priv->cliprdr_client_context, &file_contents_request);
-              }
+              priv->cliprdr_client_context->ClientFileContentsRequest (priv->cliprdr_client_context, &file_contents_request);
             }
 
             g_free (filename);
@@ -853,11 +836,7 @@ send_data_response (FrdpChannelClipboard *self,
   response.dataLen = (guint32) size;
   response.requestedFormatData = data;
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientFormatDataResponse != NULL)
-    return priv->cliprdr_client_context->ClientFormatDataResponse (priv->cliprdr_client_context, &response);
-  else
-    return CHANNEL_RC_NOT_INITIALIZED;
+  return priv->cliprdr_client_context->ClientFormatDataResponse (priv->cliprdr_client_context, &response);
 }
 
 static void
@@ -1133,11 +1112,7 @@ server_file_contents_request (CliprdrClientContext                *context,
     g_warning ("Requested index is outside of the file list!");
   }
 
-  if (priv->cliprdr_client_context != NULL &&
-      priv->cliprdr_client_context->ClientFileContentsResponse != NULL)
-    return priv->cliprdr_client_context->ClientFileContentsResponse (priv->cliprdr_client_context, &response);
-  else
-    return CHANNEL_RC_NOT_INITIALIZED;
+  return priv->cliprdr_client_context->ClientFileContentsResponse (priv->cliprdr_client_context, &response);
 }
 
 static guint
