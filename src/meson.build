@@ -56,6 +56,7 @@ gtk_frdp_deps = [
   dependency('freerdp-client2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
+  dependency('fuse3', version: '>= 3.9.1'),
   cc.find_library('m'),
 ]
 
