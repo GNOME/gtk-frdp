@@ -355,30 +355,58 @@ frdp_session_draw (GtkWidget *widget,
   return TRUE;
 }
 
+/*
+ * Return 1 to accept and store a certificate, 2 to accept
+ * a certificate only for this session, 0 otherwise.
+ */
 static guint
-frdp_certificate_verify (freerdp     *freerdp_session,
-                         const gchar *common_name,
-                         const gchar* subject,
-                         const gchar* issuer,
-                         const gchar* fingerprint,
-                         gboolean     host_mismatch)
+frdp_certificate_verify_ex (freerdp     *freerdp_session,
+                            const gchar *host,
+                            guint16      port,
+                            const gchar *common_name,
+                            const gchar *subject,
+                            const gchar *issuer,
+                            const gchar *fingerprint,
+                            guint32      flags)
 {
-  /* TODO */
-  return TRUE;
+  FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
+
+  return frdp_display_certificate_verify_ex (FRDP_DISPLAY (self->priv->display),
+                                             host,
+                                             port,
+                                             common_name,
+                                             subject,
+                                             issuer,
+                                             fingerprint,
+                                             flags);
 }
 
 static guint
-frdp_changed_certificate_verify (freerdp     *freerdp_session,
-                                 const gchar *common_name,
-                                 const gchar *subject,
-                                 const gchar *issuer,
-                                 const gchar *new_fingerprint,
-                                 const gchar *old_subject,
-                                 const gchar *old_issuer,
-                                 const gchar *old_fingerprint)
+frdp_changed_certificate_verify_ex (freerdp     *freerdp_session,
+                                    const gchar *host,
+                                    guint16      port,
+                                    const gchar *common_name,
+                                    const gchar *subject,
+                                    const gchar *issuer,
+                                    const gchar *fingerprint,
+                                    const gchar *old_subject,
+                                    const gchar *old_issuer,
+                                    const gchar *old_fingerprint,
+                                    guint32      flags)
 {
-  /* TODO */
-  return TRUE;
+  FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
+
+  return frdp_display_certificate_change_verify_ex (FRDP_DISPLAY (self->priv->display),
+                                                    host,
+                                                    port,
+                                                    common_name,
+                                                    subject,
+                                                    issuer,
+                                                    fingerprint,
+                                                    old_subject,
+                                                    old_issuer,
+                                                    old_fingerprint,
+                                                    flags);
 }
 
 static gboolean
@@ -706,8 +734,8 @@ frdp_session_init_freerdp (FrdpSession *self)
   priv->freerdp_session->PostConnect = frdp_post_connect;
   priv->freerdp_session->PostDisconnect = frdp_post_disconnect;
   priv->freerdp_session->Authenticate = frdp_authenticate;
-  priv->freerdp_session->VerifyCertificate = frdp_certificate_verify;
-  priv->freerdp_session->VerifyChangedCertificate = frdp_changed_certificate_verify;
+  priv->freerdp_session->VerifyCertificateEx = frdp_certificate_verify_ex;
+  priv->freerdp_session->VerifyChangedCertificateEx = frdp_changed_certificate_verify_ex;
 
   priv->freerdp_session->ContextSize = sizeof (frdpContext);
 

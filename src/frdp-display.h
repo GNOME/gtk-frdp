@@ -53,6 +53,33 @@ gboolean   frdp_display_authenticate (FrdpDisplay *self,
                                       gchar **password,
                                       gchar **domain);
 
+guint      frdp_display_certificate_verify_ex (FrdpDisplay *self,
+                                               const gchar *host,
+                                               guint16      port,
+                                               const gchar *common_name,
+                                               const gchar *subject,
+                                               const gchar *issuer,
+                                               const gchar *fingerprint,
+                                               guint32      flags);
+
+guint      frdp_display_certificate_change_verify_ex (FrdpDisplay *self,
+                                                      const gchar *host,
+                                                      guint16      port,
+                                                      const gchar *common_name,
+                                                      const gchar *subject,
+                                                      const gchar *issuer,
+                                                      const gchar *fingerprint,
+                                                      const gchar *old_subject,
+                                                      const gchar *old_issuer,
+                                                      const gchar *old_fingerprint,
+                                                      guint32      flags);
+
+void       frdp_display_certificate_verify (FrdpDisplay *self,
+                                            guint        verification);
+
+void       frdp_display_certificate_change_verify (FrdpDisplay *self,
+                                                   guint        verification);
+
 GdkPixbuf *frdp_display_get_pixbuf (FrdpDisplay *display);
 
 G_END_DECLS

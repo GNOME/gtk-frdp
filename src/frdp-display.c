@@ -28,6 +28,12 @@ struct _FrdpDisplayPrivate
 
   gboolean     allow_resize;
   gboolean     resize_supported;
+
+  gboolean     awaiting_certificate_verification;
+  gboolean     awaiting_certificate_change_verification;
+
+  guint        certificate_verification_value;
+  guint        certificate_change_verification_value;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpDisplay, frdp_display, GTK_TYPE_DRAWING_AREA)
@@ -49,6 +55,8 @@ enum
   RDP_DISCONNECTED,
   RDP_NEEDS_AUTHENTICATION,
   RDP_AUTH_FAILURE,
+  RDP_NEEDS_CERTIFICATE_VERIFICATION,
+  RDP_NEEDS_CERTIFICATE_CHANGE_VERIFICATION,
   LAST_SIGNAL
 };
 
@@ -432,6 +440,35 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                             0, NULL, NULL, NULL,
                                             G_TYPE_NONE, 1,
                                             G_TYPE_STRING);
+
+  signals[RDP_NEEDS_CERTIFICATE_VERIFICATION] = g_signal_new ("rdp-needs-certificate-verification",
+                                                              G_TYPE_FROM_CLASS (klass),
+                                                              G_SIGNAL_RUN_LAST,
+                                                              0, NULL, NULL, NULL,
+                                                              G_TYPE_NONE, 7,
+                                                              G_TYPE_STRING,
+                                                              G_TYPE_UINT,
+                                                              G_TYPE_STRING,
+                                                              G_TYPE_STRING,
+                                                              G_TYPE_STRING,
+                                                              G_TYPE_STRING,
+                                                              G_TYPE_UINT);
+
+  signals[RDP_NEEDS_CERTIFICATE_CHANGE_VERIFICATION] = g_signal_new ("rdp-needs-certificate-change-verification",
+                                                                     G_TYPE_FROM_CLASS (klass),
+                                                                     G_SIGNAL_RUN_LAST,
+                                                                     0, NULL, NULL, NULL,
+                                                                     G_TYPE_NONE, 10,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_UINT,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_STRING,
+                                                                     G_TYPE_UINT);
 }
 
 static void
@@ -599,6 +636,128 @@ frdp_display_authenticate (FrdpDisplay *self,
   g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
 
   return klass->authenticate (self, username, password, domain);
+}
+
+guint
+frdp_display_certificate_verify_ex (FrdpDisplay *display,
+                                    const gchar *host,
+                                    guint16      port,
+                                    const gchar *common_name,
+                                    const gchar *subject,
+                                    const gchar *issuer,
+                                    const gchar *fingerprint,
+                                    DWORD        flags)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+  GMainContext       *context;
+
+  g_signal_emit (display,
+                 signals[RDP_NEEDS_CERTIFICATE_VERIFICATION],
+                 0,
+                 host,
+                 port,
+                 common_name,
+                 subject,
+                 issuer,
+                 fingerprint,
+                 flags);
+
+  priv->awaiting_certificate_verification = TRUE;
+
+  context = g_main_context_default ();
+
+  while (priv->awaiting_certificate_verification)
+    g_main_context_iteration (context, FALSE);
+
+  return priv->certificate_verification_value;
+}
+
+guint
+frdp_display_certificate_change_verify_ex (FrdpDisplay *display,
+                                           const gchar *host,
+                                           guint16      port,
+                                           const gchar *common_name,
+                                           const gchar *subject,
+                                           const gchar *issuer,
+                                           const gchar *fingerprint,
+                                           const gchar *old_subject,
+                                           const gchar *old_issuer,
+                                           const gchar *old_fingerprint,
+                                           DWORD        flags)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+  GMainContext       *context;
+
+  g_signal_emit (display, signals[RDP_NEEDS_CERTIFICATE_CHANGE_VERIFICATION], 0,
+                 host,
+                 port,
+                 common_name,
+                 subject,
+                 issuer,
+                 fingerprint,
+                 old_subject,
+                 old_issuer,
+                 old_fingerprint,
+                 flags);
+
+  priv->awaiting_certificate_change_verification = TRUE;
+
+  context = g_main_context_default ();
+
+  while (priv->awaiting_certificate_change_verification)
+    g_main_context_iteration (context, FALSE);
+
+  return priv->certificate_change_verification_value;
+}
+
+/**
+ * frdp_display_certificate_verify:
+ * @display: (transfer none): the RDP display widget
+ * @verification: verification value (1 - accept and store the certificate,
+ *                                    2 - accept the certificate for this session only
+ *                                    0 - otherwise)
+ *
+ * Finishes verification requested by FreeRDP.
+ */
+void
+frdp_display_certificate_verify (FrdpDisplay *display,
+                                 guint        verification)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  if (verification <= 2) {
+    priv->certificate_verification_value = verification;
+  }
+  else {
+    priv->certificate_verification_value = 0;
+    g_warning ("Verification value is out of allowed values.");
+  }
+  priv->awaiting_certificate_verification = FALSE;
+}
+
+/**
+ * frdp_display_certificate_change_verify:
+ * @display: (transfer none): the RDP display widget
+ * @verification: verification value (1 - accept and store the certificate,
+ *                                    2 - accept the certificate for this session only
+ *                                    0 - otherwise)
+ *
+ * Finishes verification requested by FreeRDP.
+ */
+void
+frdp_display_certificate_change_verify (FrdpDisplay *display,
+                                        guint        verification)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  if (verification <= 2) {
+    priv->certificate_change_verification_value = verification;
+  }
+  else {
+    priv->certificate_change_verification_value = 0;
+    g_warning ("Verification value is out of allowed values.");
+  }
+  priv->awaiting_certificate_change_verification = FALSE;
 }
 
 /**
