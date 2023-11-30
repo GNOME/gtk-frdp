@@ -1039,7 +1039,7 @@ frdp_session_connect (FrdpSession         *self,
   self->priv->port = port;
 
   task = g_task_new (self, cancellable, callback, user_data);
-  g_task_run_in_thread (task, frdp_session_connect_thread);
+  frdp_session_connect_thread (task, self, user_data, cancellable);
 
   g_object_unref (task);
 }
