@@ -121,9 +121,10 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
   FrdpSessionPrivate *priv = self->priv;
   GdkCursor *cursor;
   GdkDisplay *display;
-  GdkWindow  *window;
+  GdkSurface *window;
 
-  window = gtk_widget_get_window (priv->display);
+  GtkNative *native = gtk_widget_get_native (priv->display);
+  window = gtk_native_get_surface (native);
   if (window == NULL)
     return;
 
@@ -140,13 +141,15 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cairo_rectangle(cairo, 0, 0, 1, 1);
     cairo_fill (cairo);
 
-    cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0);
+    /* todo no longer availabe */
+    /* cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0); */
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
-  } else if (!priv->show_cursor || !priv->cursor)
+  } else if (!priv->show_cursor || !priv->cursor){
       /* No cursor set or none to show */
-    cursor = gdk_cursor_new_from_name (display, "default");
-  else {
+    // todo crashes atm
+    cursor = NULL; //gdk_cursor_new_from_name (display, "default");
+  } else {
     rdpPointer *pointer = &priv->cursor->pointer;
     double x = priv->cursor->pointer.xPos * priv->scale;
     double y = priv->cursor->pointer.yPos * priv->scale;
@@ -168,24 +171,25 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cairo_paint (cairo);
 
     cairo_fill (cairo);
-    cursor =  gdk_cursor_new_from_surface (display, surface, x, y);
+    /* todo no longer availabe */
+    /* cursor =  gdk_cursor_new_from_surface (display, surface, x, y); */
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
   }
 
-  gdk_window_set_cursor (window, cursor);
+  gdk_surface_set_cursor (window, cursor);
 }
 
 static guint32
 frdp_session_get_best_color_depth (FrdpSession *self)
 {
-  GdkScreen *display;
-  GdkVisual *visual;
+  GdkDisplay *display;
+  /* GdkVisual *visual; */
 
-  display = gdk_screen_get_default ();
-  visual = gdk_screen_get_rgba_visual (display);
+  display = gdk_display_get_default ();
+  /* visual = gdk_screen_get_rgba_visual (display); */
 
-  return gdk_visual_get_depth (visual);
+  return 0; // gdk_visual_get_depth (visual);
 }
 
 static void
@@ -323,36 +327,6 @@ frdp_session_set_scaling (FrdpSession *self,
                           gboolean     scaling)
 {
   self->priv->scaling = scaling;
-}
-
-static gboolean
-frdp_session_draw (GtkWidget *widget,
-                   cairo_t   *cr,
-                   gpointer   user_data)
-{
-  FrdpSession *self = (FrdpSession*) user_data;
-
-  // Nothing to draw if disconnected
-  if (!self->priv->is_connected)
-    return FALSE;
-
-  if (self->priv->surface == NULL ||
-      (self->priv->freerdp_session->context->gdi->width != cairo_image_surface_get_width (self->priv->surface) ||
-       self->priv->freerdp_session->context->gdi->height != cairo_image_surface_get_height (self->priv->surface))) {
-    create_cairo_surface (self);
-  }
-
-  if (self->priv->scaling) {
-      cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
-      cairo_scale (cr, self->priv->scale, self->priv->scale);
-  }
-
-  cairo_set_source_surface (cr, self->priv->surface, 0, 0);
-  cairo_paint (cr);
-
-  frdp_display_set_scaling (FRDP_DISPLAY (self->priv->display), self->priv->scaling);
-
-  return TRUE;
 }
 
 static guint
@@ -549,7 +523,7 @@ frdp_end_paint (rdpContext *context)
 
   priv = self->priv;
 
-  if (priv->scaling) {
+/*  if (priv->scaling) {
       pos_x = self->priv->offset_x + x * priv->scale;
       pos_y = self->priv->offset_y + y * priv->scale;
       gtk_widget_queue_draw_area (priv->display,
@@ -559,7 +533,10 @@ frdp_end_paint (rdpContext *context)
                                   ceil (pos_y + h * priv->scale) - floor (pos_y));
   } else {
     gtk_widget_queue_draw_area (priv->display, x, y, w, h);
-  }
+  }*/
+
+  // queue_draw_area no longer available, draw whole widget (at least for now)
+  gtk_widget_queue_draw (priv->display);
 
   return TRUE;
 }
@@ -814,9 +791,9 @@ frdp_session_connect_thread (GTask        *task,
 
   gtk_widget_realize (self->priv->display);
   create_cairo_surface (self);
-  g_signal_connect (self->priv->display, "draw",
-                    G_CALLBACK (frdp_session_draw), self);
-  g_signal_connect (self->priv->display, "configure-event",
+  g_signal_connect (self->priv->display, "notify::width-request",
+                    G_CALLBACK (frdp_session_configure_event), self);
+  g_signal_connect (self->priv->display, "notify::height-request",
                     G_CALLBACK (frdp_session_configure_event), self);
   g_signal_connect (self->priv->display, "notify::resize-supported",
                     G_CALLBACK (frdp_session_resize_supported_changed), self);
@@ -1141,22 +1118,24 @@ frdp_session_mouse_pointer  (FrdpSession          *self,
 
 void
 frdp_session_send_key (FrdpSession  *self,
-                       GdkEventKey  *key)
+                       guint         keyval,
+                       guint         keycode,
+                       guint         modifiers,
+                       bool          key_press)
 {
   rdpInput *input = self->priv->freerdp_session->input;
   DWORD scancode = 0;
-  guint8 keycode;
   guint16 flags;
   gboolean extended = FALSE;
 
-  scancode =
-    freerdp_keyboard_get_rdp_scancode_from_x11_keycode (key->hardware_keycode);
+  /* scancode = */
+  /*   freerdp_keyboard_get_rdp_scancode_from_x11_keycode (key->hardware_keycode); */
 
-  keycode = scancode & 0xFF;
-  extended = scancode & 0x100;
+  /* keycode = scancode & 0xFF; */
+  /* extended = scancode & 0x100; */
 
   flags = extended ? KBD_FLAGS_EXTENDED : 0;
-  flags |= key->type == GDK_KEY_PRESS ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
+  flags |= key_press ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
 
   if (keycode)
     input->KeyboardEvent (input, flags, keycode);
@@ -1173,4 +1152,30 @@ frdp_session_get_pixbuf (FrdpSession *self)
   return gdk_pixbuf_get_from_surface (self->priv->surface,
                                       0, 0,
                                       width, height);
+}
+
+void frdp_session_draw (FrdpSession *self,
+                        GtkWidget   *widget,
+                        GtkSnapshot *snapshot)
+{
+  // Nothing to draw if disconnected
+  if (!self->priv->is_connected)
+    return;
+
+  graphene_rect_t bounds;
+  gtk_widget_compute_bounds (widget, widget, &bounds);
+  int w = graphene_rect_get_width (&bounds);
+  int h = graphene_rect_get_height (&bounds);
+
+  cairo_t *cr = gtk_snapshot_append_cairo (snapshot, &bounds);
+
+  if (self->priv->scaling) {
+      cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
+      cairo_scale (cr, self->priv->scale_x, self->priv->scale_y);
+  }
+
+  cairo_set_source_surface (cr, self->priv->surface, 0, 0);
+  cairo_paint (cr);
+
+  frdp_display_set_scaling (self->priv->display, self->priv->scaling);
 }

@@ -84,9 +84,17 @@ void         frdp_session_mouse_pointer  (FrdpSession          *self,
                                           gboolean              enter);
 
 void         frdp_session_send_key       (FrdpSession          *self,
-                                          GdkEventKey          *key);
+                                          guint                 keyval,
+                                          guint                 keycode,
+                                          guint                 modifiers,
+                                          bool                  key_press);
 
 GdkPixbuf   *frdp_session_get_pixbuf     (FrdpSession          *self);
+
+void         frdp_session_draw           (FrdpSession          *self,
+                                          GtkWidget            *widget,
+                                          GtkSnapshot          *snapshot);
+
 /*FreeRDP fatal error codes*/
 typedef enum {
  FRDP_ERRCONNECT_CONNECT_CANCELLED = 0x2000B,
