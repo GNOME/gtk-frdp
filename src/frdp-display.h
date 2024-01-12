@@ -74,11 +74,16 @@ guint      frdp_display_certificate_change_verify_ex (FrdpDisplay *self,
                                                       const gchar *old_fingerprint,
                                                       guint32      flags);
 
-void       frdp_display_certificate_verify (FrdpDisplay *self,
-                                            guint        verification);
+void       frdp_display_certificate_verify_ex_finish (FrdpDisplay *self,
+                                                      guint        verification);
 
-void       frdp_display_certificate_change_verify (FrdpDisplay *self,
-                                                   guint        verification);
+void       frdp_display_certificate_change_verify_ex_finish (FrdpDisplay *self,
+                                                             guint        verification);
+
+void       frdp_display_authenticate_finish (FrdpDisplay *self,
+                                             gchar       *username,
+                                             gchar       *password,
+                                             gchar       *domain);
 
 GdkPixbuf *frdp_display_get_pixbuf (FrdpDisplay *display);
 

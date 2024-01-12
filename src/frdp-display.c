@@ -31,6 +31,7 @@ struct _FrdpDisplayPrivate
 
   gboolean     awaiting_certificate_verification;
   gboolean     awaiting_certificate_change_verification;
+  gboolean     awaiting_authentication;
 
   guint        certificate_verification_value;
   guint        certificate_change_verification_value;
@@ -45,7 +46,8 @@ enum
   PROP_PASSWORD,
   PROP_SCALING,
   PROP_ALLOW_RESIZE,
-  PROP_RESIZE_SUPPORTED
+  PROP_RESIZE_SUPPORTED,
+  PROP_DOMAIN
 };
 
 enum
@@ -301,6 +303,10 @@ frdp_display_get_property (GObject      *object,
         g_object_get (session, "password", &str_property, NULL);
         g_value_set_string (value, str_property);
         break;
+      case PROP_DOMAIN:
+        g_object_get (session, "domain", &str_property, NULL);
+        g_value_set_string (value, str_property);
+        break;
       case PROP_SCALING:
         g_object_get (session, "scaling", &str_property, NULL);
         g_value_set_boolean (value, (gboolean)GPOINTER_TO_INT (str_property));
@@ -334,6 +340,9 @@ frdp_display_set_property (GObject      *object,
         break;
       case PROP_PASSWORD:
         g_object_set (session, "password", g_value_get_string (value), NULL);
+        break;
+      case PROP_DOMAIN:
+        g_object_set (session, "domain", g_value_get_string (value), NULL);
         break;
       case PROP_SCALING:
         frdp_display_set_scaling (self, g_value_get_boolean (value));
@@ -382,6 +391,14 @@ frdp_display_class_init (FrdpDisplayClass *klass)
                                    g_param_spec_string ("password",
                                                         "password",
                                                         "password",
+                                                        NULL,
+                                                        G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_DOMAIN,
+                                   g_param_spec_string ("domain",
+                                                        "domain",
+                                                        "domain",
                                                         NULL,
                                                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
 
@@ -626,16 +643,66 @@ GtkWidget *frdp_display_new (void)
 }
 
 gboolean
-frdp_display_authenticate (FrdpDisplay *self,
-                           gchar **username,
-                           gchar **password,
-                           gchar **domain)
+frdp_display_authenticate (FrdpDisplay  *self,
+                           gchar       **username,
+                           gchar       **password,
+                           gchar       **domain)
 {
-  FrdpDisplayClass *klass = FRDP_DISPLAY_GET_CLASS (self);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  GMainContext       *context;
 
   g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
 
-  return klass->authenticate (self, username, password, domain);
+  priv->awaiting_authentication = TRUE;
+
+  context = g_main_context_default ();
+
+  while (priv->awaiting_authentication)
+    g_main_context_iteration (context, FALSE);
+
+  *username = *password = *domain = NULL;
+  g_object_get (priv->session,
+                "username", username,
+                "password", password,
+                "domain", domain,
+                NULL);
+
+  if (*username != NULL && *username[0] == '\0' &&
+      *password != NULL && *password[0] == '\0' &&
+      *domain != NULL && *domain[0] == '\0')
+    return FALSE;
+
+  return TRUE;
+}
+
+/*
+ * frdp_display_authenticate_finish:
+ * @display: (transfer none): the RDP display widget
+ * @username: (transfer none): username for the connection
+ * @password: (transfer none): password for the connection
+ * @domain: (transfer none): optional domain for the connection
+ *
+ * This function finishes authentication which started in
+ * frdp_display_authenticate() and stores given authentication
+ * credentials into FrdpSession so that frdp_display_authenticate()
+ * can pick them up later and pass them to FreeRDP.
+ *
+ */
+void
+frdp_display_authenticate_finish (FrdpDisplay *self,
+                                  gchar       *username,
+                                  gchar       *password,
+                                  gchar       *domain)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+
+  g_object_set (priv->session,
+                "username", username,
+                "password", password,
+                "domain", domain,
+                NULL);
+
+  priv->awaiting_authentication = FALSE;
 }
 
 guint
@@ -720,8 +787,8 @@ frdp_display_certificate_change_verify_ex (FrdpDisplay *display,
  * Finishes verification requested by FreeRDP.
  */
 void
-frdp_display_certificate_verify (FrdpDisplay *display,
-                                 guint        verification)
+frdp_display_certificate_verify_ex_finish (FrdpDisplay *display,
+                                           guint        verification)
 {
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
 
@@ -745,8 +812,8 @@ frdp_display_certificate_verify (FrdpDisplay *display,
  * Finishes verification requested by FreeRDP.
  */
 void
-frdp_display_certificate_change_verify (FrdpDisplay *display,
-                                        guint        verification)
+frdp_display_certificate_change_verify_ex_finish (FrdpDisplay *display,
+                                                  guint        verification)
 {
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
 

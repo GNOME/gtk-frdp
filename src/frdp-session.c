@@ -77,6 +77,7 @@ struct _FrdpSessionPrivate
   gchar *hostname;
   gchar *username;
   gchar *password;
+  gchar *domain;
   guint  port;
 
   gboolean show_cursor;
@@ -100,7 +101,8 @@ enum
   PROP_PASSWORD,
   PROP_DISPLAY,
   PROP_SCALING,
-  PROP_MONITOR_LAYOUT_SUPPORTED
+  PROP_MONITOR_LAYOUT_SUPPORTED,
+  PROP_DOMAIN
 };
 
 enum
@@ -748,6 +750,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->ServerPort = priv->port;
   settings->Username = g_strdup (priv->username);
   settings->Password = g_strdup (priv->password);
+  settings->Domain = g_strdup (priv->domain);
 
   settings->AllowFontSmoothing = TRUE;
   settings->AllowUnanouncedOrdersFromServer = TRUE;
@@ -877,6 +880,9 @@ frdp_session_get_property (GObject    *object,
       case PROP_PASSWORD:
         g_value_set_string (value, settings->Password);
         break;
+      case PROP_DOMAIN:
+        g_value_set_string (value, settings->Domain);
+        break;
       case PROP_DISPLAY:
         g_value_set_object (value, self->priv->display);
         break;
@@ -916,6 +922,10 @@ frdp_session_set_property (GObject      *object,
       case PROP_PASSWORD:
         g_free (self->priv->password);
         self->priv->password = g_value_dup_string (value);
+        break;
+      case PROP_DOMAIN:
+        g_free (self->priv->domain);
+        self->priv->domain = g_value_dup_string (value);
         break;
       case PROP_DISPLAY:
         self->priv->display = g_value_get_object (value);
@@ -981,6 +991,14 @@ frdp_session_class_init (FrdpSessionClass *klass)
                                    g_param_spec_string ("password",
                                                         "password",
                                                         "password",
+                                                        NULL,
+                                                        G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_DOMAIN,
+                                   g_param_spec_string ("domain",
+                                                        "domain",
+                                                        "domain",
                                                         NULL,
                                                         G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
 
