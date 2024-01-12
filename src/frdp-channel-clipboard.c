@@ -24,6 +24,10 @@
 #define FUSE_USE_VERSION 35
 #include <fuse_lowlevel.h>
 
+#if 0
+
+/* Clipboard has not been migrated to gtk4 yet. */
+
 typedef struct
 {
   guchar   *data;
@@ -1798,3 +1802,4 @@ frdp_channel_clipboard_set_client_context (FrdpChannelClipboard *self,
   context->ServerLockClipboardData = server_lock_clipboard_data;
   context->ServerUnlockClipboardData = server_unlock_clipboard_data;
 }
+#endif

@@ -46,7 +46,7 @@
 #include "frdp-session.h"
 #include "frdp-context.h"
 #include "frdp-channel-display-control.h"
-#include "frdp-channel-clipboard.h"
+/*#include "frdp-channel-clipboard.h"*/
 
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
@@ -80,12 +80,11 @@ struct _FrdpSessionPrivate
   guint  port;
 
   gboolean show_cursor;
-  gboolean cursor_null;
   frdpPointer *cursor;
 
   /* Channels */
   FrdpChannelDisplayControl *display_control_channel;
-  FrdpChannelClipboard      *clipboard_channel;
+  /* FrdpChannelClipboard      *clipboard_channel;*/
   gboolean                   monitor_layout_supported;
 };
 
@@ -115,41 +114,44 @@ enum
 
 static guint signals[LAST_SIGNAL];
 
+static void frdp_session_draw (GtkDrawingArea *area,
+                               cairo_t        *cr,
+                               int             width,
+                               int             height,
+                               gpointer        user_data);
+
 static void
-frdp_session_update_mouse_pointer (FrdpSession  *self)
+frdp_session_update_mouse_pointer (FrdpSession *self)
 {
   FrdpSessionPrivate *priv = self->priv;
-  GdkCursor *cursor;
-  GdkDisplay *display;
-  GdkSurface *window;
+  GdkDisplay         *display;
+  GdkSurface         *window;
+  GdkCursor          *cursor = NULL;
+  GtkNative          *native;
 
-  GtkNative *native = gtk_widget_get_native (priv->display);
+  native = gtk_widget_get_native (priv->display);
   window = gtk_native_get_surface (native);
   if (window == NULL)
     return;
 
-  display = gtk_widget_get_display(priv->display);
-  if (priv->show_cursor && priv->cursor_null) {
-    cairo_surface_t *surface;
-    cairo_t *cairo;
+  display = gtk_widget_get_display (priv->display);
+  if (priv->show_cursor && FALSE) {
+    GdkTexture *texture;
+    GdkPixbuf  *pixbuf;
 
     /* Create a 1x1 image with transparent color */
-    surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 1, 1);
-    cairo = cairo_create (surface);
-    cairo_set_source_rgba (cairo, 0.0, 0.0, 0.0, 0.0);
-    cairo_set_line_width(cairo, 1);
-    cairo_rectangle(cairo, 0, 0, 1, 1);
-    cairo_fill (cairo);
+    pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
+    gdk_pixbuf_fill (pixbuf, 0x00000000);
 
-    /* todo no longer availabe */
-    /* cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0); */
-    cairo_surface_destroy (surface);
-    cairo_destroy (cairo);
-  } else if (!priv->show_cursor || !priv->cursor){
-      /* No cursor set or none to show */
-    // todo crashes atm
-    cursor = NULL; //gdk_cursor_new_from_name (display, "default");
-  } else {
+    texture = gdk_texture_new_for_pixbuf (pixbuf);
+    cursor = gdk_cursor_new_from_texture (texture, 0, 0, NULL);
+  } else if (!priv->show_cursor || !priv->cursor) {
+    /* No cursor set or none to show. */
+    cursor = gdk_cursor_new_from_name ("default", NULL);
+  }
+#if 0
+/* This part is not used at all currently. */
+    else {
     rdpPointer *pointer = &priv->cursor->pointer;
     double x = priv->cursor->pointer.xPos * priv->scale;
     double y = priv->cursor->pointer.yPos * priv->scale;
@@ -171,11 +173,11 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cairo_paint (cairo);
 
     cairo_fill (cairo);
-    /* todo no longer availabe */
-    /* cursor =  gdk_cursor_new_from_surface (display, surface, x, y); */
+    /* cursor = gdk_cursor_new_from_surface (display, surface, x, y); */
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
   }
+#endif
 
   gdk_surface_set_cursor (window, cursor);
 }
@@ -183,13 +185,7 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
 static guint32
 frdp_session_get_best_color_depth (FrdpSession *self)
 {
-  GdkDisplay *display;
-  /* GdkVisual *visual; */
-
-  display = gdk_display_get_default ();
-  /* visual = gdk_screen_get_rgba_visual (display); */
-
-  return 0; // gdk_visual_get_depth (visual);
+  return 0;
 }
 
 static void
@@ -200,6 +196,7 @@ create_cairo_surface (FrdpSession *self)
   gint                stride;
 
   if (priv->surface != NULL) {
+    cairo_surface_flush (priv->surface);
     cairo_surface_mark_dirty (priv->surface);
     cairo_surface_destroy (priv->surface);
     self->priv->surface = NULL;
@@ -217,6 +214,7 @@ create_cairo_surface (FrdpSession *self)
                                            gdi->width,
                                            gdi->height,
                                            stride);
+
   cairo_surface_flush (priv->surface);
 }
 
@@ -237,13 +235,14 @@ frdp_desktop_resize (rdpContext *context)
 }
 
 static void
-frdp_session_configure_event (GtkWidget *widget,
-                              GdkEvent  *event,
-                              gpointer   user_data)
+frdp_session_resize_cb (GtkDrawingArea *area,
+                        gint            w,
+                        gint            h,
+                        gpointer        user_data)
 {
-  FrdpSession *self = (FrdpSession*) user_data;
+  FrdpSession *self = (FrdpSession *) user_data;
   FrdpSessionPrivate *priv = self->priv;
-  GtkWidget *scrolled;
+  GtkWidget *scrolled, *widget = GTK_WIDGET (area);
   rdpSettings *settings;
   rdpGdi *gdi;
   double width, height, widget_ratio, server_ratio;
@@ -403,12 +402,12 @@ frdp_on_channel_connected_event_handler (void                      *context,
   } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
     // TODO Remote application
   } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
-    g_clear_object (&priv->clipboard_channel);
+    /* g_clear_object (&priv->clipboard_channel);
 
     priv->clipboard_channel = g_object_new (FRDP_TYPE_CHANNEL_CLIPBOARD,
                                             "session", session,
                                             "cliprdr-client-context", (CliprdrClientContext *) e->pInterface,
-                                            NULL);
+                                            NULL); */
   } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
     // TODO Multiparty channel
   } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
@@ -439,7 +438,7 @@ frdp_on_channel_disconnected_event_handler (void                         *contex
   } else if (strcmp (e->name, RAIL_SVC_CHANNEL_NAME) == 0) {
     // TODO Remote application
   } else if (strcmp (e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
-    g_clear_object (&priv->clipboard_channel);
+    /* g_clear_object (&priv->clipboard_channel); */
   } else if (strcmp (e->name, ENCOMSP_SVC_CHANNEL_NAME) == 0) {
     // TODO Multiparty channel
   } else if (strcmp (e->name, GEOMETRY_DVC_CHANNEL_NAME) == 0) {
@@ -508,34 +507,15 @@ static gboolean
 frdp_end_paint (rdpContext *context)
 {
   FrdpSessionPrivate *priv;
-  FrdpSession *self = ((frdpContext *) context)->self;
-  rdpGdi *gdi = context->gdi;
-  gint x, y, w, h;
-  gint pos_x, pos_y;
+  FrdpSession        *self = ((frdpContext *) context)->self;
+  rdpGdi             *gdi = context->gdi;
 
   if (gdi->primary->hdc->hwnd->invalid->null)
     return TRUE;
 
-  x = gdi->primary->hdc->hwnd->invalid->x;
-  y = gdi->primary->hdc->hwnd->invalid->y;
-  w = gdi->primary->hdc->hwnd->invalid->w;
-  h = gdi->primary->hdc->hwnd->invalid->h;
-
   priv = self->priv;
 
-/*  if (priv->scaling) {
-      pos_x = self->priv->offset_x + x * priv->scale;
-      pos_y = self->priv->offset_y + y * priv->scale;
-      gtk_widget_queue_draw_area (priv->display,
-                                  floor (pos_x),
-                                  floor (pos_y),
-                                  ceil (pos_x + w * priv->scale) - floor (pos_x),
-                                  ceil (pos_y + h * priv->scale) - floor (pos_y));
-  } else {
-    gtk_widget_queue_draw_area (priv->display, x, y, w, h);
-  }*/
-
-  // queue_draw_area no longer available, draw whole widget (at least for now)
+  /* queue_draw_area no longer available, draw whole widget (at least for now) */
   gtk_widget_queue_draw (priv->display);
 
   return TRUE;
@@ -568,7 +548,7 @@ frdp_post_connect (freerdp *freerdp_session)
       break;
     default:
       color_format = PIXEL_FORMAT_BGRX32;
-      self->priv->cairo_format = CAIRO_FORMAT_RGB16_565;
+      self->priv->cairo_format = CAIRO_FORMAT_ARGB32;
       break;
   }
 
@@ -607,7 +587,7 @@ frdp_post_disconnect (freerdp *instance)
 static gboolean
 idle_close (gpointer user_data)
 {
-  FrdpSession *self = (FrdpSession*) user_data;
+  FrdpSession *self = (FrdpSession *) user_data;
 
   self->priv->is_connected = FALSE;
 
@@ -716,7 +696,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->SupportDisplayControl = TRUE;
   settings->RemoteFxCodec = TRUE;
   settings->ColorDepth = 32;
-  settings->RedirectClipboard = TRUE;
+  settings->RedirectClipboard = FALSE /*TRUE*/;
   settings->SupportGraphicsPipeline = TRUE;
 
   collections[0] = "disp";
@@ -791,10 +771,9 @@ frdp_session_connect_thread (GTask        *task,
 
   gtk_widget_realize (self->priv->display);
   create_cairo_surface (self);
-  g_signal_connect (self->priv->display, "notify::width-request",
-                    G_CALLBACK (frdp_session_configure_event), self);
-  g_signal_connect (self->priv->display, "notify::height-request",
-                    G_CALLBACK (frdp_session_configure_event), self);
+
+  g_signal_connect (self->priv->display, "resize",
+                    G_CALLBACK (frdp_session_resize_cb), self);
   g_signal_connect (self->priv->display, "notify::resize-supported",
                     G_CALLBACK (frdp_session_resize_supported_changed), self);
 
@@ -992,14 +971,20 @@ frdp_session_init (FrdpSession *self)
   self->priv->is_connected = FALSE;
 }
 
-FrdpSession*
+FrdpSession *
 frdp_session_new (FrdpDisplay *display)
 {
+  FrdpSession *session;
+
   gtk_widget_show (GTK_WIDGET (display));
 
-  return g_object_new (FRDP_TYPE_SESSION,
-                       "display", display,
-                       NULL);
+  session = g_object_new (FRDP_TYPE_SESSION,
+                          "display", display,
+                          NULL);
+
+  gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (display), frdp_session_draw, session, NULL);
+
+  return session;
 }
 
 void
@@ -1107,8 +1092,8 @@ frdp_session_mouse_event (FrdpSession          *self,
 }
 
 void
-frdp_session_mouse_pointer  (FrdpSession          *self,
-                             gboolean              enter)
+frdp_session_mouse_pointer (FrdpSession *self,
+                            gboolean     enter)
 {
   FrdpSessionPrivate *priv = self->priv;
 
@@ -1126,19 +1111,19 @@ frdp_session_send_key (FrdpSession  *self,
   rdpInput *input = self->priv->freerdp_session->input;
   DWORD scancode = 0;
   guint16 flags;
+  guint code;
   gboolean extended = FALSE;
 
-  /* scancode = */
-  /*   freerdp_keyboard_get_rdp_scancode_from_x11_keycode (key->hardware_keycode); */
+  scancode = freerdp_keyboard_get_rdp_scancode_from_x11_keycode (keycode);
 
-  /* keycode = scancode & 0xFF; */
-  /* extended = scancode & 0x100; */
+  code = scancode & 0xFF;
+  extended = scancode & 0x100;
 
   flags = extended ? KBD_FLAGS_EXTENDED : 0;
   flags |= key_press ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
 
-  if (keycode)
-    input->KeyboardEvent (input, flags, keycode);
+  if (code)
+    input->KeyboardEvent (input, flags, code);
 }
 
 GdkPixbuf *
@@ -1154,28 +1139,32 @@ frdp_session_get_pixbuf (FrdpSession *self)
                                       width, height);
 }
 
-void frdp_session_draw (FrdpSession *self,
-                        GtkWidget   *widget,
-                        GtkSnapshot *snapshot)
+static void
+frdp_session_draw (GtkDrawingArea *area,
+                   cairo_t        *cr,
+                   int             width,
+                   int             height,
+                   gpointer        user_data)
 {
-  // Nothing to draw if disconnected
+  FrdpSession *self = (FrdpSession *) user_data;
+
+  /* Nothing to draw if disconnected */
   if (!self->priv->is_connected)
     return;
 
-  graphene_rect_t bounds;
-  gtk_widget_compute_bounds (widget, widget, &bounds);
-  int w = graphene_rect_get_width (&bounds);
-  int h = graphene_rect_get_height (&bounds);
-
-  cairo_t *cr = gtk_snapshot_append_cairo (snapshot, &bounds);
+  if (self->priv->surface == NULL ||
+      (self->priv->freerdp_session->context->gdi->width != cairo_image_surface_get_width (self->priv->surface) ||
+       self->priv->freerdp_session->context->gdi->height != cairo_image_surface_get_height (self->priv->surface))) {
+    create_cairo_surface (self);
+  }
 
   if (self->priv->scaling) {
       cairo_translate (cr, self->priv->offset_x, self->priv->offset_y);
-      cairo_scale (cr, self->priv->scale_x, self->priv->scale_y);
+      cairo_scale (cr, self->priv->scale, self->priv->scale);
   }
 
   cairo_set_source_surface (cr, self->priv->surface, 0, 0);
   cairo_paint (cr);
 
-  frdp_display_set_scaling (self->priv->display, self->priv->scaling);
+  frdp_display_set_scaling (FRDP_DISPLAY (self->priv->display), self->priv->scaling);
 }

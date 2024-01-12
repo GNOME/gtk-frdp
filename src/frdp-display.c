@@ -21,6 +21,7 @@
 #include "frdp-session.h"
 
 #include <freerdp/channels/disp.h>
+#include <freerdp/input.h>
 
 struct _FrdpDisplayPrivate
 {
@@ -62,8 +63,6 @@ frdp_display_is_initialized (FrdpDisplay *self)
 {
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
 
-  frdp_display_init (self);
-
   return priv->session != NULL && frdp_display_is_open (self);
 }
 
@@ -71,7 +70,7 @@ static gboolean
 frdp_key_pressed_cb (GtkEventControllerKey *controller,
                      guint                  keyval,
                      guint                  keycode,
-                     guint                  modifiers,
+                     GdkModifierType        state,
                      GtkWidget             *widget)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
@@ -80,7 +79,7 @@ frdp_key_pressed_cb (GtkEventControllerKey *controller,
   if (!frdp_display_is_initialized (self))
     return TRUE;
 
-  frdp_session_send_key (priv->session, keyval, keycode, modifiers, true);
+  frdp_session_send_key (priv->session, keyval, keycode, state, true);
 
   return TRUE;
 }
@@ -134,7 +133,7 @@ frdp_display_button_event (GtkGestureClick *controller,
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
   guint16 flags = 0;
-  guint button = gtk_gesture_single_get_current_button (controller);
+  guint button = gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (controller));
 
   if (!frdp_display_is_initialized (self))
     return TRUE;
@@ -258,9 +257,11 @@ frdp_enter_notify_event (GtkEventControllerMotion *controller,
                          gdouble                   y,
                          GtkWidget                *widget)
 {
-  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplay        *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-  frdp_session_mouse_pointer(priv->session, TRUE);
+
+  frdp_session_mouse_pointer (priv->session, TRUE);
+
   return TRUE;
 }
 
@@ -268,9 +269,11 @@ static gboolean
 frdp_leave_notify_event (GtkEventControllerMotion *controller,
                          GtkWidget                *widget)
 {
-  FrdpDisplay *self = FRDP_DISPLAY (widget);
+  FrdpDisplay        *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-  frdp_session_mouse_pointer(priv->session, FALSE);
+
+  frdp_session_mouse_pointer (priv->session, FALSE);
+
   return TRUE;
 }
 
@@ -398,16 +401,6 @@ frdp_display_set_property (GObject      *object,
 }
 
 static void
-frdp_display_snapshot (GtkWidget   *widget,
-                       GtkSnapshot *snapshot)
-{
-  FrdpDisplay *self = (FrdpDisplay*) widget;
-  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-
-  frdp_session_draw (priv->session, widget, snapshot);
-}
-
-static void
 frdp_display_class_init (FrdpDisplayClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
@@ -415,8 +408,6 @@ frdp_display_class_init (FrdpDisplayClass *klass)
 
   gobject_class->get_property = frdp_display_get_property;
   gobject_class->set_property = frdp_display_set_property;
-
-  widget_class->snapshot = frdp_display_snapshot;
 
   g_object_class_install_property (gobject_class,
                                    PROP_USERNAME,
@@ -495,36 +486,27 @@ static void
 frdp_display_init (FrdpDisplay *self)
 {
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+  GtkEventController *controller;
 
-  GtkEventController *key_controller = gtk_event_controller_key_new ();
-  g_signal_connect (key_controller, "key-pressed", G_CALLBACK (frdp_key_pressed_cb), self);
-  g_signal_connect (key_controller, "key-released", G_CALLBACK (frdp_key_released_cb), self);
-  gtk_widget_add_controller (GTK_WIDGET (self), key_controller);
+  controller = gtk_event_controller_key_new ();
+  g_signal_connect (controller, "key-pressed", G_CALLBACK (frdp_key_pressed_cb), self);
+  g_signal_connect (controller, "key-released", G_CALLBACK (frdp_key_released_cb), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), controller);
 
-  GtkEventController *motion_controller = gtk_event_controller_motion_new ();
-  g_signal_connect (motion_controller,"motion", G_CALLBACK (frdp_display_motion_event), self);
-  g_signal_connect (motion_controller,"enter", G_CALLBACK (frdp_enter_notify_event), self);
-  g_signal_connect (motion_controller,"leave", G_CALLBACK (frdp_leave_notify_event), self);
-  gtk_widget_add_controller (GTK_WIDGET (self), motion_controller);
+  controller = gtk_event_controller_motion_new ();
+  g_signal_connect (controller, "motion", G_CALLBACK (frdp_display_motion_event), self);
+  g_signal_connect (controller, "enter", G_CALLBACK (frdp_enter_notify_event), self);
+  g_signal_connect (controller, "leave", G_CALLBACK (frdp_leave_notify_event), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), controller);
 
-  GtkGestureClick *gesture_controller = gtk_gesture_click_new ();
-  g_signal_connect (gesture_controller,"pressed", G_CALLBACK (frdp_display_button_press_event), self);
-  g_signal_connect (gesture_controller,"released", G_CALLBACK (frdp_display_button_release_event), self);
-  gtk_widget_add_controller (GTK_WIDGET (self), gesture_controller);
+  controller = GTK_EVENT_CONTROLLER (gtk_gesture_click_new ());
+  g_signal_connect (controller, "pressed", G_CALLBACK (frdp_display_button_press_event), self);
+  g_signal_connect (controller, "released", G_CALLBACK (frdp_display_button_release_event), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), controller);
 
-  GtkEventControllerScroll *scroll_controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
-  g_signal_connect (scroll_controller,"scroll", G_CALLBACK (frdp_display_scroll_event), self);
-  gtk_widget_add_controller (GTK_WIDGET (self), scroll_controller);
-
-/*  gtk_widget_add_events (GTK_WIDGET (self),
-                         GDK_POINTER_MOTION_MASK |
-                         GDK_BUTTON_PRESS_MASK |
-                         GDK_BUTTON_RELEASE_MASK |
-                         GDK_SCROLL_MASK |
-                         GDK_SMOOTH_SCROLL_MASK |
-                         GDK_KEY_PRESS_MASK |
-                         GDK_ENTER_NOTIFY_MASK |
-                         GDK_LEAVE_NOTIFY_MASK);*/
+  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
+  g_signal_connect (controller, "scroll", G_CALLBACK (frdp_display_scroll_event), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), controller);
 
   gtk_widget_set_can_focus (GTK_WIDGET (self), TRUE);
 
@@ -643,9 +625,7 @@ frdp_display_set_allow_resize (FrdpDisplay *display,
     gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
   }
 
-  gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
-                              gtk_widget_get_allocated_width (GTK_WIDGET (display)),
-                              gtk_widget_get_allocated_height (GTK_WIDGET (display)));
+  gtk_widget_queue_draw (GTK_WIDGET (display));
 }
 
 /*
