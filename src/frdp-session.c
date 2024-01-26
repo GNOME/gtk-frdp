@@ -721,6 +721,207 @@ update (gpointer user_data)
   return TRUE;
 }
 
+/*
+ *  The local layout string is taken from org.gnome.desktop.input-sources.mru-sources
+ *  after adding it among available sources and setting it active.
+ *  Most of the national layout has been assigned according to default keyboard
+ *  for given nation so these can be inaccurate.
+ *  Non-standard layouts has to be checked directly by comparing them
+ *  (e.g. against layouts on https://kbdlayout.info/).
+ */
+static const struct {
+  const char  *local_layout;
+  const guint  freerdp_layout;
+} keyboard_layouts[] = {
+  { "ara", KBD_ARABIC_101 },
+  { "bg", KBD_BULGARIAN },
+  { "cz", KBD_CZECH },
+  { "da", KBD_DANISH },
+  { "de", KBD_GERMAN },
+  { "gr", KBD_GREEK },
+  { "us", KBD_US },
+  { "es", KBD_SPANISH },
+  { "fi", KBD_FINNISH },
+  { "fr", KBD_FRENCH },
+  { "il", KBD_HEBREW },
+  { "hu", KBD_HUNGARIAN },
+  { "is", KBD_ICELANDIC },
+  { "it", KBD_ITALIAN },
+  { "jp", KBD_JAPANESE },
+  { "kr", KBD_KOREAN },
+  { "nl", KBD_DUTCH },
+  { "no", KBD_NORWEGIAN },
+  { "pl+dvp", KBD_POLISH_PROGRAMMERS },
+  { "pt", KBD_PORTUGUESE_BRAZILIAN_ABNT },
+  { "ro", KBD_ROMANIAN },
+  { "ru", KBD_RUSSIAN },
+  { "hr", KBD_CROATIAN },
+  { "sk", KBD_SLOVAK },
+  { "al", KBD_ALBANIAN },
+  { "se", KBD_SWEDISH },
+  { "tr", KBD_TURKISH_Q },
+  { "pk+urd-nla", KBD_URDU },
+  { "ua", KBD_UKRAINIAN },
+  { "by", KBD_BELARUSIAN },
+  { "si", KBD_SLOVENIAN },
+  { "ee", KBD_ESTONIAN },
+  { "lv", KBD_LATVIAN },
+  { "lt+ibm", KBD_LITHUANIAN_IBM },
+  { "vn", KBD_VIETNAMESE },
+  { "am+eastern", KBD_ARMENIAN_EASTERN },
+  { "mk", KBD_FYRO_MACEDONIAN },
+  { "ge", KBD_GEORGIAN },
+  { "fo", KBD_FAEROESE },
+  { "no+smi", KBD_NORWEGIAN_WITH_SAMI },
+  { "kz", KBD_KAZAKH },
+  { "gb+extd", KBD_UNITED_KINGDOM_EXTENDED },
+  { "sy+syc", KBD_SYRIAC },
+  { "af+ps-olpc", KBD_PASHTO },
+  { "m17n:dv:phonetic", KBD_DIVEHI_PHONETIC },
+  { "nz+mao", KBD_MAORI },
+  { "ch", KBD_SWISS_GERMAN },
+  { "gb", KBD_UNITED_KINGDOM },
+  { "latam", KBD_LATIN_AMERICAN },
+  { "be", KBD_BELGIAN_FRENCH },
+  { "pt", KBD_PORTUGUESE },
+  { "ca+fr-legacy", KBD_CANADIAN_FRENCH_LEGACY },
+  { "ca", KBD_CANADIAN_FRENCH },
+  { "ba", KBD_BOSNIAN },
+  { "cz+qwerty", KBD_CZECH_QWERTY },
+  { "de+T3", KBD_GERMAN_IBM },
+  { "us+dvorak", KBD_UNITED_STATES_DVORAK },
+  { "it+ibm", KBD_ITALIAN_142 },
+  { "pl+qwertz", KBD_POLISH_214 },
+  { "pt", KBD_PORTUGUESE_BRAZILIAN_ABNT2 },
+  { "sk+qwerty", KBD_SLOVAK_QWERTY },
+  { "th+pat", KBD_THAI_PATTACHOTE },
+  { "tr+f", KBD_TURKISH_F },
+  { "lt", KBD_LITHUANIAN },
+  { "am+western", KBD_ARMENIAN_WESTERN },
+  { "be+iso-alternate", KBD_BELGIAN_COMMA },
+  { "gb+gla", KBD_GAELIC },
+  { "us+intl", KBD_UNITED_STATES_INTERNATIONAL },
+  { "us+dvorak-l", KBD_UNITED_STATES_DVORAK_FOR_LEFT_HAND },
+  { "us+dvorak-r", KBD_UNITED_STATES_DVORAK_FOR_RIGHT_HAND },
+  { "us+dvp", KBD_UNITED_STATES_DVORAK_PROGRAMMER },
+  { "gr+polytonic", KBD_GREEK_POLYTONIC },
+  { "fr+bepo", KBD_FRENCH_BEPO },
+  { "de+neo", KBD_GERMAN_NEO },
+
+  /* These need to be determined yet. */
+
+  { "", KBD_CHINESE_TRADITIONAL_US },
+  { "", KBD_THAI_KEDMANEE },
+  { "", KBD_FARSI },
+  { "", KBD_AZERI_LATIN },
+  { "", KBD_DEVANAGARI_INSCRIPT },
+  { "", KBD_MALTESE_47_KEY },
+  { "", KBD_KYRGYZ_CYRILLIC },
+  { "", KBD_TATAR },
+  { "", KBD_BENGALI },
+  { "", KBD_PUNJABI },
+  { "", KBD_GUJARATI },
+  { "", KBD_TAMIL },
+  { "", KBD_TELUGU },
+  { "", KBD_KANNADA },
+  { "", KBD_MALAYALAM },
+  { "", KBD_MARATHI },
+  { "", KBD_MONGOLIAN_CYRILLIC },
+  { "", KBD_NEPALI },
+  { "", KBD_LUXEMBOURGISH },
+  { "", KBD_CHINESE_SIMPLIFIED_US },
+  { "", KBD_BELGIAN_PERIOD },
+  { "", KBD_SERBIAN_LATIN },
+  { "", KBD_AZERI_CYRILLIC },
+  { "", KBD_SWEDISH_WITH_SAMI },
+  { "", KBD_UZBEK_CYRILLIC },
+  { "", KBD_INUKTITUT_LATIN },
+  { "", KBD_SERBIAN_CYRILLIC },
+  { "", KBD_SWISS_FRENCH },
+  { "", KBD_IRISH },
+  { "", KBD_BOSNIAN_CYRILLIC },
+  { "", KBD_ARABIC_102 },
+  { "", KBD_BULGARIAN_LATIN },
+  { "", KBD_GREEK_220 },
+  { "", KBD_SPANISH_VARIATION },
+  { "", KBD_HUNGARIAN_101_KEY },
+  { "", KBD_RUSSIAN_TYPEWRITER },
+  { "", KBD_LATVIAN_QWERTY },
+  { "", KBD_HINDI_TRADITIONAL },
+  { "", KBD_MALTESE_48_KEY },
+  { "", KBD_SAMI_EXTENDED_NORWAY },
+  { "", KBD_BENGALI_INSCRIPT },
+  { "", KBD_SYRIAC_PHONETIC },
+  { "", KBD_DIVEHI_TYPEWRITER },
+  { "", KBD_FINNISH_WITH_SAMI },
+  { "", KBD_CANADIAN_MULTILINGUAL_STANDARD },
+  { "", KBD_ARABIC_102_AZERTY },
+  { "", KBD_CZECH_PROGRAMMERS },
+  { "", KBD_GREEK_319 },
+  { "", KBD_THAI_KEDMANEE_NON_SHIFTLOCK },
+  { "", KBD_SAMI_EXTENDED_FINLAND_SWEDEN },
+  { "", KBD_GREEK_220_LATIN },
+  { "", KBD_THAI_PATTACHOTE_NON_SHIFTLOCK },
+  { "", KBD_GREEK_319_LATIN },
+  { "", KBD_GREEK_LATIN },
+  { "", KBD_US_ENGLISH_TABLE_FOR_IBM_ARABIC_238_L }
+
+/*
+  These are available in FreeRDP 3:
+  { "", KBD_ROMANIAN_STANDARD },
+  { "", KBD_GEORGIAN_QUERTY },
+  { "", KBD_KHMER },
+  { "", KBD_RUSSIAN_PHONETIC },
+  { "", KBD_BANGLA },
+  { "", KBD_BULGARIAN_PHONETIC },
+  { "", KBD_PERSIAN },
+*/
+};
+
+static void
+frdp_session_set_current_keyboard_layout (FrdpSession *self) {
+  GSettingsSchemaSource *source;
+  FrdpSessionPrivate    *priv = self->priv;
+  GSettingsSchema       *schema;
+  rdpSettings           *settings;
+  const gchar           *source_type = NULL, *layout = NULL;
+  GSettings             *gsettings;
+  GVariant              *sources;
+  gboolean               keyboard_layout_set = FALSE;
+  guint                  i;
+
+  settings = priv->freerdp_session->settings;
+
+  source = g_settings_schema_source_get_default ();
+  if (source != NULL) {
+    schema = g_settings_schema_source_lookup (source, "org.gnome.desktop.input-sources", TRUE);
+    if (schema != NULL) {
+      gsettings = g_settings_new (g_settings_schema_get_id (schema));
+      sources = g_settings_get_value (gsettings, "mru-sources");
+
+      if (g_variant_n_children (sources) >= 1)
+        g_variant_get_child (sources, 0, "(&s&s)", &source_type, &layout);
+
+      if (layout != NULL) {
+        for (i = 0; i < G_N_ELEMENTS (keyboard_layouts); i++) {
+          if (g_strcmp0 (layout, keyboard_layouts[i].local_layout) == 0) {
+            settings->KeyboardLayout = freerdp_keyboard_init (keyboard_layouts[i].freerdp_layout);
+            keyboard_layout_set = TRUE;
+            break;
+          }
+        }
+      }
+
+      g_variant_unref (sources);
+      g_object_unref (gsettings);
+      g_settings_schema_unref (schema);
+    }
+  }
+
+  if (!keyboard_layout_set)
+    settings->KeyboardLayout = freerdp_keyboard_init (0);
+}
+
 static void
 frdp_session_init_freerdp (FrdpSession *self)
 {
@@ -786,7 +987,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   }
   g_free (build_options);
 
-  settings->KeyboardLayout = freerdp_keyboard_init (0);
+  frdp_session_set_current_keyboard_layout (self);
 
   freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 }
