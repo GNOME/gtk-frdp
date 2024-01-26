@@ -1382,7 +1382,7 @@ clipboard_content_received (GtkClipboard     *clipboard,
   length = gtk_selection_data_get_length (selection_data);
   data_type = gtk_selection_data_get_data_type (selection_data);
 
-  if (length >= 0) {
+  if (length > 0) {
     if (data_type == gdk_atom_intern ("UTF8_STRING", FALSE)) {
       text = gtk_selection_data_get_text (selection_data);
       text_length = strlen ((gchar *) text);
