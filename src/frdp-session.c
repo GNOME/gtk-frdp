@@ -607,7 +607,7 @@ frdp_post_connect (freerdp *freerdp_session)
   settings = context->settings;
   switch (frdp_session_get_best_color_depth (self)) {
     case 32:
-      color_format = PIXEL_FORMAT_BGRA32;
+      color_format = PIXEL_FORMAT_BGRX32;
       self->priv->cairo_format = CAIRO_FORMAT_ARGB32;
       break;
     case 24:
