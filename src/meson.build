@@ -50,15 +50,28 @@ cc = meson.get_compiler('c')
 vala = meson.get_compiler('vala')
 
 gtk_frdp_deps = [
-  # The 2.0.0-rc4 version is needed at least, but there is no easy way to detect this.
-  dependency('winpr2', version: '>= 2.0.0'),
-  dependency('freerdp2', version: '>= 2.0.0'),
-  dependency('freerdp-client2'),
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0'),
   dependency('fuse3', version: '>= 3.9.1'),
   cc.find_library('m'),
 ]
+
+# Keep compatibility with FreeRDP 2 for next few releases
+freerdp3_dep = dependency('freerdp3', required: false)
+if freerdp3_dep.found()
+  add_project_arguments('-DHAVE_FREERDP3', language: 'c')
+  gtk_frdp_deps += freerdp3_dep
+  gtk_frdp_deps += dependency('winpr3', version: '>= 3.0.0')
+  gtk_frdp_deps += dependency('freerdp-client3')
+else
+  # The 2.0.0-rc4 version is needed at least, but there is no easy way to detect this.
+  freerdp2_dep = dependency('freerdp2', version: '>= 2.0.0')
+  if freerdp2_dep.found()
+    gtk_frdp_deps += freerdp2_dep
+    gtk_frdp_deps += dependency('winpr2', version: '>= 2.0.0')
+    gtk_frdp_deps += dependency('freerdp-client2')
+  endif
+endif
 
 gtk_frdp_lib = shared_library('gtk-frdp-' + api_version,
   gtk_frdp_public_sources + gtk_frdp_private_sources,

@@ -51,6 +51,12 @@
 #define SELECT_TIMEOUT 50
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
 
+#ifdef HAVE_FREERDP3
+#define CONST_QUALIFIER const
+#else
+#define CONST_QUALIFIER
+#endif
+
 struct frdp_pointer
 {
 	rdpPointer pointer;
@@ -259,10 +265,10 @@ frdp_session_configure_event (GtkWidget *widget,
   width = (double)gtk_widget_get_allocated_width (scrolled);
   height = (double)gtk_widget_get_allocated_height (scrolled);
 
-  if (priv->freerdp_session->settings == NULL)
+  if (priv->freerdp_session->context->settings == NULL)
     return;
 
-  settings = priv->freerdp_session->settings;
+  settings = priv->freerdp_session->context->settings;
 
   g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
@@ -435,8 +441,8 @@ caps_set (FrdpChannelDisplayControl *channel,
 }
 
 static void
-frdp_on_channel_connected_event_handler (void                      *context,
-                                         ChannelConnectedEventArgs *e)
+frdp_on_channel_connected_event_handler (void                                      *context,
+                                         CONST_QUALIFIER ChannelConnectedEventArgs *e)
 {
   frdpContext        *ctx = (frdpContext *) context;
   FrdpSession        *session = ctx->self;
@@ -477,8 +483,8 @@ frdp_on_channel_connected_event_handler (void                      *context,
 }
 
 static void
-frdp_on_channel_disconnected_event_handler (void                         *context,
-                                            ChannelDisconnectedEventArgs *e)
+frdp_on_channel_disconnected_event_handler (void                                         *context,
+                                            CONST_QUALIFIER ChannelDisconnectedEventArgs *e)
 {
   frdpContext        *ctx = (frdpContext *) context;
   FrdpSession        *session = ctx->self;
@@ -508,9 +514,18 @@ frdp_on_channel_disconnected_event_handler (void                         *contex
 }
 
 static gboolean
+frdp_load_channels (freerdp *instance)
+{
+  if (!freerdp_client_load_addins (instance->context->channels, instance->context->settings))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
 frdp_pre_connect (freerdp *freerdp_session)
 {
-  rdpSettings *settings = freerdp_session->settings;
+  rdpSettings *settings = freerdp_session->context->settings;
   rdpContext *context = freerdp_session->context;
 
   settings->OrderSupport[NEG_DSTBLT_INDEX] = TRUE;
@@ -543,10 +558,11 @@ frdp_pre_connect (freerdp *freerdp_session)
   PubSub_SubscribeChannelDisconnected (context->pubSub,
                                        frdp_on_channel_disconnected_event_handler);
 
-  if (!freerdp_client_load_addins (context->channels, settings))
-    return FALSE;
-
+#ifndef HAVE_FREERDP3
+  return frdp_load_channels (freerdp_session);
+#else
   return TRUE;
+#endif
 }
 
 static gboolean
@@ -627,9 +643,9 @@ frdp_post_connect (freerdp *freerdp_session)
 
   gdi_init (freerdp_session, color_format);
 
-  freerdp_session->update->BeginPaint = frdp_begin_paint;
-  freerdp_session->update->EndPaint = frdp_end_paint;
-  freerdp_session->update->DesktopResize = frdp_desktop_resize;
+  freerdp_session->context->update->BeginPaint = frdp_begin_paint;
+  freerdp_session->context->update->EndPaint = frdp_end_paint;
+  freerdp_session->context->update->DesktopResize = frdp_desktop_resize;
 
   EventArgsInit(&e, "frdp");
 	e.width = settings->DesktopWidth;
@@ -890,7 +906,7 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
   gboolean               keyboard_layout_set = FALSE;
   guint                  i;
 
-  settings = priv->freerdp_session->settings;
+  settings = priv->freerdp_session->context->settings;
 
   source = g_settings_schema_source_get_default ();
   if (source != NULL) {
@@ -925,11 +941,11 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
 static void
 frdp_session_init_freerdp (FrdpSession *self)
 {
-  FrdpSessionPrivate *priv = self->priv;
-  rdpSettings        *settings;
-  gchar              *collections[1];
-  gchar              *build_options;
-  int                 count = 1;
+  CONST_QUALIFIER gchar *collections[] = { "disp" };
+  FrdpSessionPrivate    *priv = self->priv;
+  rdpSettings           *settings;
+  gchar                 *build_options;
+  int                    count = 1;
 
   /* Setup FreeRDP session */
   priv->freerdp_session = freerdp_new ();
@@ -939,13 +955,16 @@ frdp_session_init_freerdp (FrdpSession *self)
   priv->freerdp_session->Authenticate = frdp_authenticate;
   priv->freerdp_session->VerifyCertificateEx = frdp_certificate_verify_ex;
   priv->freerdp_session->VerifyChangedCertificateEx = frdp_changed_certificate_verify_ex;
+#ifdef HAVE_FREERDP3
+  priv->freerdp_session->LoadChannels = frdp_load_channels;
+#endif
 
   priv->freerdp_session->ContextSize = sizeof (frdpContext);
 
   freerdp_context_new (priv->freerdp_session);
   ((frdpContext *) priv->freerdp_session->context)->self = self;
 
-  settings = priv->freerdp_session->settings;
+  settings = priv->freerdp_session->context->settings;
 
   settings->ServerHostname = g_strdup (priv->hostname);
   settings->ServerPort = priv->port;
@@ -974,7 +993,6 @@ frdp_session_init_freerdp (FrdpSession *self)
   settings->RedirectClipboard = TRUE;
   settings->SupportGraphicsPipeline = TRUE;
 
-  collections[0] = "disp";
   freerdp_client_add_dynamic_channel (settings, count, collections);
 
   build_options = g_ascii_strup (freerdp_get_build_config (), -1);
@@ -1065,7 +1083,7 @@ frdp_session_get_property (GObject    *object,
                            GParamSpec *pspec)
 {
   FrdpSession *self = (FrdpSession*) object;
-  rdpSettings *settings = self->priv->freerdp_session->settings;
+  rdpSettings *settings = self->priv->freerdp_session->context->settings;
 
   switch (property_id)
     {
@@ -1358,7 +1376,7 @@ frdp_session_mouse_event (FrdpSession          *self,
   if (event & FRDP_MOUSE_EVENT_BUTTON5)
     xflags |=  PTR_XFLAGS_BUTTON2;
 
-  input = priv->freerdp_session->input;
+  input = priv->freerdp_session->context->input;
 
   if (priv->scaling) {
     x = (x - priv->offset_x) / priv->scale;
@@ -1390,7 +1408,7 @@ void
 frdp_session_send_key (FrdpSession  *self,
                        GdkEventKey  *key)
 {
-  rdpInput *input = self->priv->freerdp_session->input;
+  rdpInput *input = self->priv->freerdp_session->context->input;
   DWORD scancode = 0;
   guint8 keycode;
   guint16 flags;

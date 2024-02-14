@@ -24,6 +24,16 @@
 #define FUSE_USE_VERSION 35
 #include <fuse_lowlevel.h>
 
+#ifdef HAVE_FREERDP3
+#define COMMON(x) common.x
+#else
+#define COMMON(x) x
+#endif
+
+#define FRDP_CLIPBOARD_FORMAT_PNG          0xD011
+#define FRDP_CLIPBOARD_FORMAT_JPEG         0xD012
+#define FRDP_CLIPBOARD_FORMAT_TEXT_URILIST 0xD014
+
 typedef struct
 {
   guchar   *data;
@@ -640,7 +650,7 @@ frdp_channel_clipboard_init (FrdpChannelClipboard *self)
 
   priv->gtk_clipboard = gtk_clipboard_get (GDK_SELECTION_CLIPBOARD);
   priv->clipboard_owner_changed_id = g_signal_connect (priv->gtk_clipboard, "owner-change", G_CALLBACK (clipboard_owner_change_cb), self);
-  priv->fgdw_id = CB_FORMAT_TEXTURILIST;
+  priv->fgdw_id = FRDP_CLIPBOARD_FORMAT_TEXT_URILIST;
   priv->current_inode = FUSE_ROOT_ID + 1;
   priv->locked_data = NULL;
   priv->pending_lock = FALSE;
@@ -740,10 +750,10 @@ send_client_format_list (FrdpChannelClipboard *self)
         formats[j].formatId = CF_TEXT;
         formats[j++].formatName = NULL;
       } else if (g_strcmp0 (atom_name, "image/png") == 0) {
-        formats[j].formatId = CB_FORMAT_PNG;
+        formats[j].formatId = FRDP_CLIPBOARD_FORMAT_PNG;
         formats[j++].formatName = NULL;
       } else if (g_strcmp0 (atom_name, "image/jpeg") == 0) {
-        formats[j].formatId = CB_FORMAT_JPEG;
+        formats[j].formatId = FRDP_CLIPBOARD_FORMAT_JPEG;
         formats[j++].formatName = NULL;
       } else if (g_strcmp0 (atom_name, "image/bmp") == 0) {
         formats[j].formatId = CF_DIB;
@@ -757,8 +767,8 @@ send_client_format_list (FrdpChannelClipboard *self)
     }
   }
 
-  format_list.msgType = CB_FORMAT_LIST;
-  format_list.msgFlags = CB_RESPONSE_OK;
+  format_list.COMMON(msgType) = CB_FORMAT_LIST;
+  format_list.COMMON(msgFlags) = CB_RESPONSE_OK;
   format_list.numFormats = j;
   format_list.formats = formats;
 
@@ -895,9 +905,9 @@ send_client_format_list_response (FrdpChannelClipboard *self,
   CLIPRDR_FORMAT_LIST_RESPONSE  response = { 0 };
   FrdpChannelClipboardPrivate  *priv = frdp_channel_clipboard_get_instance_private (self);
 
-  response.msgType = CB_FORMAT_LIST_RESPONSE;
-  response.msgFlags = status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
-  response.dataLen = 0;
+  response.COMMON(msgType) = CB_FORMAT_LIST_RESPONSE;
+  response.COMMON(msgFlags) = status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
+  response.COMMON(dataLen) = 0;
 
   return priv->cliprdr_client_context->ClientFormatListResponse (priv->cliprdr_client_context, &response);
 }
@@ -915,6 +925,49 @@ replace_ascii_character (gchar *text,
   }
 }
 
+static WCHAR *
+convert_to_unicode (const gchar *text)
+{
+  WCHAR *result = NULL;
+
+  if (text != NULL) {
+#ifdef HAVE_FREERDP3
+    gssize conversion_length = ConvertUtf8ToWChar (text, NULL, 0);
+    if (conversion_length >= 0) {
+      result = g_new0 (WCHAR, conversion_length + 1);
+      if (ConvertUtf8ToWChar (text, result, conversion_length + 1) != conversion_length)
+        g_clear_pointer (&result, g_free);
+    }
+#else
+    ConvertToUnicode (CP_UTF8, 0, (LPCSTR) text, -1, &result, 0);
+#endif
+  }
+
+  return result;
+}
+
+static gchar *
+convert_from_unicode (const WCHAR *text,
+                      gint         text_length)
+{
+  gchar *result = NULL;
+
+  if (text != NULL) {
+#ifdef HAVE_FREERDP3
+    gssize conversion_length = ConvertWCharToUtf8 (text, NULL, 0);
+    if (conversion_length >= 0) {
+      result = g_new0 (gchar, conversion_length + 1);
+      if (ConvertWCharToUtf8 (text, result, conversion_length + 1) != conversion_length)
+        g_clear_pointer (&result, g_free);
+    }
+#else
+    ConvertFromUnicode (CP_UTF8, 0, text, text_length, &result, 0, NULL, NULL);
+#endif
+  }
+
+  return result;
+}
+
 /* TODO: Rewrite this using async methods of GtkCLipboard once we move to Gtk4 */
 static void
 _gtk_clipboard_get_func (GtkClipboard     *clipboard,
@@ -929,9 +982,9 @@ _gtk_clipboard_get_func (GtkClipboard     *clipboard,
   gchar                       *data = NULL;
   gint                         length;
 
-  lock_clipboard_data.msgType = CB_LOCK_CLIPDATA;
-  lock_clipboard_data.msgFlags = 0;
-  lock_clipboard_data.dataLen = 4;
+  lock_clipboard_data.COMMON(msgType) = CB_LOCK_CLIPDATA;
+  lock_clipboard_data.COMMON(msgFlags) = 0;
+  lock_clipboard_data.COMMON(dataLen) = 4;
   lock_clipboard_data.clipDataId = ++priv->remote_clip_data_id;
   priv->cliprdr_client_context->ClientLockClipboardData (priv->cliprdr_client_context, &lock_clipboard_data);
 
@@ -943,13 +996,15 @@ _gtk_clipboard_get_func (GtkClipboard     *clipboard,
 
     if (info == CF_UNICODETEXT) {
       /* TODO - convert CR LF to CR */
-      length = ConvertFromUnicode (CP_UTF8, 0, (WCHAR *) current_request->responses[0].data, (int) (current_request->responses[0].length / sizeof (WCHAR)), &data, 0, NULL, NULL);
-
-      gtk_selection_data_set (selection_data,
-                              gdk_atom_intern ("UTF8_STRING", FALSE),
-                              8,
-                              (guchar *) data,
-                              length);
+      data = convert_from_unicode ((WCHAR *) current_request->responses[0].data, current_request->responses[0].length / sizeof (WCHAR));
+      if (data != NULL) {
+        length = strlen (data);
+        gtk_selection_data_set (selection_data,
+                                gdk_atom_intern ("UTF8_STRING", FALSE),
+                                8,
+                                (guchar *) data,
+                                length);
+      }
     } else if (info == CF_DIB) {
       /* This has been inspired by function transmute_cf_dib_to_image_bmp() from gtk */
       BITMAPINFOHEADER *bi = (BITMAPINFOHEADER *) current_request->responses[0].data;
@@ -988,7 +1043,7 @@ _gtk_clipboard_get_func (GtkClipboard     *clipboard,
           priv->remote_files_infos = g_new0 (FrdpRemoteFileInfo, priv->remote_files_count);
 
           for (i = 0; i < count; i++) {
-            length = ConvertFromUnicode (CP_UTF8, 0, (WCHAR *) files[i].cFileName, (int) (260 / sizeof (WCHAR)), &path, 0, NULL, NULL);
+            path = convert_from_unicode ((WCHAR *) files[i].cFileName, 260 / sizeof (WCHAR));
 
             replace_ascii_character (path, '\\', '/');
 
@@ -1114,9 +1169,9 @@ _gtk_clipboard_clear_func (GtkClipboard *clipboard,
 
   g_mutex_unlock (&priv->fuse_mutex);
 
-  unlock_clipboard_data.msgType = CB_UNLOCK_CLIPDATA;
-  unlock_clipboard_data.msgFlags = 0;
-  unlock_clipboard_data.dataLen = 4;
+  unlock_clipboard_data.COMMON(msgType) = CB_UNLOCK_CLIPDATA;
+  unlock_clipboard_data.COMMON(msgFlags) = 0;
+  unlock_clipboard_data.COMMON(dataLen) = 4;
   unlock_clipboard_data.clipDataId = priv->remote_clip_data_id;
   priv->cliprdr_client_context->ClientUnlockClipboardData (priv->cliprdr_client_context, &unlock_clipboard_data);
 
@@ -1163,7 +1218,7 @@ server_format_list (CliprdrClientContext      *context,
           atom = gdk_atom_intern ("UTF8_STRING", FALSE);
         } else if (format_list->formats[i].formatId == CF_DIB) {
           atom = gdk_atom_intern ("image/bmp", FALSE);
-        } else if (format_list->formats[i].formatId == CB_FORMAT_PNG) {
+        } else if (format_list->formats[i].formatId == FRDP_CLIPBOARD_FORMAT_PNG) {
           atom = gdk_atom_intern ("image/png", FALSE);
         }
 
@@ -1236,9 +1291,11 @@ frdp_local_file_info_new (GFile     *file,
     relative_path = g_file_get_relative_path (root, file);
     replace_ascii_character (relative_path, '/', '\\');
 
-    ConvertToUnicode (CP_UTF8, 0, (LPCSTR) relative_path, -1, &file_name, 0);
-    memcpy (frdp_file_info->descriptor->cFileName, file_name, strlen (relative_path) * 2);
-    g_free (file_name);
+    file_name = convert_to_unicode (relative_path);
+    if (file_name != NULL) {
+      memcpy (frdp_file_info->descriptor->cFileName, file_name, strlen (relative_path) * 2);
+      g_free (file_name);
+    }
     g_free (relative_path);
 
     file_size = g_file_info_get_size (file_info);
@@ -1310,8 +1367,8 @@ send_data_response (FrdpChannelClipboard *self,
   if (size > UINT32_MAX)
     return ERROR_INVALID_PARAMETER;
 
-  response.msgFlags = (data) ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
-  response.dataLen = (guint32) size;
+  response.COMMON(msgFlags) = (data) ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
+  response.COMMON(dataLen) = (guint32) size;
   response.requestedFormatData = data;
 
   return priv->cliprdr_client_context->ClientFormatDataResponse (priv->cliprdr_client_context, &response);
@@ -1339,10 +1396,13 @@ clipboard_content_received (GtkClipboard     *clipboard,
     if (data_type == gdk_atom_intern ("UTF8_STRING", FALSE)) {
       text = gtk_selection_data_get_text (selection_data);
       text_length = strlen ((gchar *) text);
-      if (ConvertToUnicode (CP_UTF8, 0, (LPCSTR) text, text_length, (WCHAR **) &data, 0) > 0) {
+
+      data = (guchar *) convert_to_unicode ((gchar *) text);
+      if (data != NULL) {
         send_data_response (self, data, (text_length + 1) * sizeof (WCHAR));
         g_free (data);
       }
+
       g_free (text);
     } else if (data_type == gdk_atom_intern ("image/png", FALSE)) {
       pixbuf = gtk_selection_data_get_pixbuf (selection_data);
@@ -1454,13 +1514,13 @@ server_format_data_request (CliprdrClientContext              *context,
                                       clipboard_content_received,
                                       self);
       break;
-    case CB_FORMAT_PNG:
+    case FRDP_CLIPBOARD_FORMAT_PNG:
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("image/png", FALSE),
                                       clipboard_content_received,
                                       self);
       break;
-    case CB_FORMAT_JPEG:
+    case FRDP_CLIPBOARD_FORMAT_JPEG:
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("image/jpeg", FALSE),
                                       clipboard_content_received,
@@ -1501,7 +1561,7 @@ server_format_data_response (CliprdrClientContext               *context,
     self = (FrdpChannelClipboard *) context->custom;
     priv = frdp_channel_clipboard_get_instance_private (self);
 
-    if (response->msgType == CB_FORMAT_DATA_RESPONSE) {
+    if (response->COMMON(msgType) == CB_FORMAT_DATA_RESPONSE) {
       if (priv->requests != NULL) {
         current_request = priv->requests->data;
         for (j = 0; j < current_request->count; j++) {
@@ -1513,10 +1573,10 @@ server_format_data_response (CliprdrClientContext               *context,
 
         if (subrequest_index >= 0 && subrequest_index < current_request->count) {
           current_request->responses[subrequest_index].handled = TRUE;
-          if (response->msgFlags & CB_RESPONSE_OK) {
-            current_request->responses[subrequest_index].length = response->dataLen;
-            current_request->responses[subrequest_index].data = g_new (guchar, response->dataLen);
-            memcpy (current_request->responses[subrequest_index].data, response->requestedFormatData, response->dataLen);
+          if (response->COMMON(msgFlags) & CB_RESPONSE_OK) {
+            current_request->responses[subrequest_index].length = response->COMMON(dataLen);
+            current_request->responses[subrequest_index].data = g_new (guchar, response->COMMON(dataLen));
+            memcpy (current_request->responses[subrequest_index].data, response->requestedFormatData, response->COMMON(dataLen));
           } else {
             g_warning ("Clipboard data request failed!");
           }
@@ -1550,8 +1610,8 @@ server_file_contents_request (CliprdrClientContext                *context,
   GList                          *iter;
   GFile                          *file;
 
-  response.msgType = CB_FILECONTENTS_RESPONSE;
-  response.msgFlags = CB_RESPONSE_FAIL;
+  response.COMMON(msgType) = CB_FILECONTENTS_RESPONSE;
+  response.COMMON(msgFlags) = CB_RESPONSE_FAIL;
   response.streamId = file_contents_request->streamId;
 
   g_mutex_lock (&priv->lock_mutex);
@@ -1589,8 +1649,8 @@ server_file_contents_request (CliprdrClientContext                *context,
 
       response.requestedData = (guchar *) size;
       response.cbRequested = 8;
-      response.dataLen = 8;
-      response.msgFlags = CB_RESPONSE_OK;
+      response.COMMON(dataLen) = 8;
+      response.COMMON(msgFlags) = CB_RESPONSE_OK;
 
       g_object_unref (file_info);
     } else if (file_contents_request->dwFlags & FILECONTENTS_RANGE) {
@@ -1608,8 +1668,8 @@ server_file_contents_request (CliprdrClientContext                *context,
 
           response.requestedData = data;
           response.cbRequested = bytes_read;
-          response.dataLen = bytes_read;
-          response.msgFlags = CB_RESPONSE_OK;
+          response.COMMON(dataLen) = bytes_read;
+          response.COMMON(msgFlags) = CB_RESPONSE_OK;
         }
       } else {
         g_warning ("Content of a directory was requested!");
@@ -1639,7 +1699,7 @@ server_file_contents_response (CliprdrClientContext                 *context,
   FrdpRemoteFileRequest       *request;
   struct stat                  attr = {0};
 
-  if (context != NULL && file_contents_response->msgFlags & CB_RESPONSE_OK) {
+  if (context != NULL && file_contents_response->COMMON(msgFlags) & CB_RESPONSE_OK) {
     self = (FrdpChannelClipboard *) context->custom;
     priv = frdp_channel_clipboard_get_instance_private (self);
 
@@ -1684,7 +1744,7 @@ server_file_contents_response (CliprdrClientContext                 *context,
       g_mutex_unlock (&priv->fuse_mutex);
     }
   } else {
-    if (file_contents_response->msgFlags & CB_RESPONSE_FAIL) {
+    if (file_contents_response->COMMON(msgFlags) & CB_RESPONSE_FAIL) {
       g_warning ("Server file response has failed!");
     }
   }
