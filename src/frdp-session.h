@@ -80,6 +80,12 @@ void         frdp_session_mouse_event    (FrdpSession          *self,
                                           guint16               x,
                                           guint16               y);
 
+void         frdp_session_mouse_smooth_scroll_event (FrdpSession          *self,
+                                                     guint16               x,
+                                                     guint16               y,
+                                                     double                delta_x,
+                                                     double                delta_y);
+
 void         frdp_session_mouse_pointer  (FrdpSession          *self,
                                           gboolean              enter);
 

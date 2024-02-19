@@ -181,23 +181,12 @@ frdp_display_scroll_event (GtkWidget      *widget,
       flags = FRDP_MOUSE_EVENT_HWHEEL;
       break;
     case GDK_SCROLL_SMOOTH:
-    /* Calculate delta and decide which event we have
-     * a delta X means horizontal, a delta Y means vertical scroll.
-     * Fixes https://bugzilla.gnome.org/show_bug.cgi?id=675959
-     */
-    if (event->delta_x > 0.5)
-      flags = FRDP_MOUSE_EVENT_HWHEEL;
-    else if (event->delta_x < -0.5)
-      flags = FRDP_MOUSE_EVENT_HWHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
-    else if (event->delta_y > 0.5)
-      flags = FRDP_MOUSE_EVENT_WHEEL;
-    else if (event->delta_y < -0.5)
-      flags = FRDP_MOUSE_EVENT_WHEEL | FRDP_MOUSE_EVENT_WHEEL_NEGATIVE;
-    else {
-      g_debug ("scroll smooth unhandled");
-      return FALSE;
-    }
-    break;
+      frdp_session_mouse_smooth_scroll_event (priv->session,
+                                              event->x,
+                                              event->y,
+                                              event->delta_x,
+                                              event->delta_y);
+      return TRUE;
     default:
       return FALSE;
   }

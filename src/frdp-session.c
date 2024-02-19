@@ -1395,6 +1395,53 @@ frdp_session_mouse_event (FrdpSession          *self,
 }
 
 void
+frdp_session_mouse_smooth_scroll_event (FrdpSession          *self,
+                                        guint16               x,
+                                        guint16               y,
+                                        double                delta_x,
+                                        double                delta_y)
+{
+  FrdpSessionPrivate *priv = self->priv;
+  rdpInput           *input;
+  guint16             flags = 0, value;
+
+  g_return_if_fail (priv->freerdp_session != NULL);
+
+  if (fabs (delta_y) >= fabs (delta_x)) {
+    flags |= PTR_FLAGS_WHEEL;
+    value = (guint16) round (fabs (delta_y) * 0x78);
+    /* Reversing direction here to reflect the behaviour on local side. */
+    if (delta_y < 0.0) {
+      flags |= value & WheelRotationMask;
+    } else {
+      flags |= PTR_FLAGS_WHEEL_NEGATIVE;
+      flags |= (~value + 1) & WheelRotationMask;
+    }
+  } else {
+    flags |= PTR_FLAGS_HWHEEL;
+    value = (guint16) round (fabs (delta_x) * 0x78);
+    if (delta_x < 0.0) {
+      flags |= PTR_FLAGS_WHEEL_NEGATIVE;
+      flags |= (~value + 1) & WheelRotationMask;
+    } else {
+      flags |= value & WheelRotationMask;
+    }
+  }
+
+  input = priv->freerdp_session->context->input;
+
+  if (priv->scaling) {
+    x = (x - priv->offset_x) / priv->scale;
+    y = (y - priv->offset_y) / priv->scale;
+  }
+
+  x = x < 0.0 ? 0.0 : x;
+  y = y < 0.0 ? 0.0 : y;
+
+  freerdp_input_send_mouse_event (input, flags, x, y);
+}
+
+void
 frdp_session_mouse_pointer  (FrdpSession          *self,
                              gboolean              enter)
 {
