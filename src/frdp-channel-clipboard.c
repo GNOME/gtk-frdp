@@ -932,12 +932,7 @@ convert_to_unicode (const gchar *text)
 
   if (text != NULL) {
 #ifdef HAVE_FREERDP3
-    gssize conversion_length = ConvertUtf8ToWChar (text, NULL, 0);
-    if (conversion_length >= 0) {
-      result = g_new0 (WCHAR, conversion_length + 1);
-      if (ConvertUtf8ToWChar (text, result, conversion_length + 1) != conversion_length)
-        g_clear_pointer (&result, g_free);
-    }
+    result = ConvertUtf8ToWCharAlloc (text, NULL);
 #else
     ConvertToUnicode (CP_UTF8, 0, (LPCSTR) text, -1, &result, 0);
 #endif
@@ -954,12 +949,7 @@ convert_from_unicode (const WCHAR *text,
 
   if (text != NULL) {
 #ifdef HAVE_FREERDP3
-    gssize conversion_length = ConvertWCharToUtf8 (text, NULL, 0);
-    if (conversion_length >= 0) {
-      result = g_new0 (gchar, conversion_length + 1);
-      if (ConvertWCharToUtf8 (text, result, conversion_length + 1) != conversion_length)
-        g_clear_pointer (&result, g_free);
-    }
+    result = ConvertWCharNToUtf8Alloc (text, text_length, NULL);
 #else
     ConvertFromUnicode (CP_UTF8, 0, text, text_length, &result, 0, NULL, NULL);
 #endif
