@@ -1442,15 +1442,7 @@ frdp_session_mouse_smooth_scroll_event (FrdpSession          *self,
 
   input = priv->freerdp_session->context->input;
 
-  if (priv->scaling) {
-    x = (x - priv->offset_x) / priv->scale;
-    y = (y - priv->offset_y) / priv->scale;
-  }
-
-  x = x < 0.0 ? 0.0 : x;
-  y = y < 0.0 ? 0.0 : y;
-
-  freerdp_input_send_mouse_event (input, flags, x, y);
+  freerdp_input_send_mouse_event (input, flags, 0, 0);
 }
 
 void
