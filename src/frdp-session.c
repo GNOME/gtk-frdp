@@ -1410,21 +1410,33 @@ frdp_session_mouse_smooth_scroll_event (FrdpSession          *self,
   if (fabs (delta_y) >= fabs (delta_x)) {
     flags |= PTR_FLAGS_WHEEL;
     value = (guint16) round (fabs (delta_y) * 0x78);
-    /* Reversing direction here to reflect the behaviour on local side. */
-    if (delta_y < 0.0) {
-      flags |= value & WheelRotationMask;
-    } else {
-      flags |= PTR_FLAGS_WHEEL_NEGATIVE;
-      flags |= (~value + 1) & WheelRotationMask;
+    if (value > 0) {
+      /* Reversing direction here to reflect the behaviour on local side. */
+      if (delta_y < 0.0) {
+        if (value > 255)
+          value = 255;
+        flags |= value & WheelRotationMask;
+      } else {
+        if (value > 256)
+          value = 256;
+        flags |= PTR_FLAGS_WHEEL_NEGATIVE;
+        flags |= (~value + 1) & WheelRotationMask;
+      }
     }
   } else {
     flags |= PTR_FLAGS_HWHEEL;
     value = (guint16) round (fabs (delta_x) * 0x78);
-    if (delta_x < 0.0) {
-      flags |= PTR_FLAGS_WHEEL_NEGATIVE;
-      flags |= (~value + 1) & WheelRotationMask;
-    } else {
-      flags |= value & WheelRotationMask;
+    if (value > 0) {
+      if (delta_x < 0.0) {
+        if (value > 256)
+          value = 256;
+        flags |= PTR_FLAGS_WHEEL_NEGATIVE;
+        flags |= (~value + 1) & WheelRotationMask;
+      } else {
+        if (value > 255)
+          value = 255;
+        flags |= value & WheelRotationMask;
+      }
     }
   }
 
