@@ -203,6 +203,9 @@ frdp_channel_clipboard_finalize (GObject *object)
   FrdpChannelClipboard        *self = (FrdpChannelClipboard *) object;
   FrdpChannelClipboardPrivate *priv = frdp_channel_clipboard_get_instance_private (self);
 
+  g_signal_handler_disconnect (priv->gtk_clipboard,
+                               priv->clipboard_owner_changed_id);
+
   g_hash_table_unref (priv->remote_files_requests);
   fuse_session_unmount (priv->fuse_session);
   fuse_session_exit (priv->fuse_session);
