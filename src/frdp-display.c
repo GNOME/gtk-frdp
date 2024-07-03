@@ -645,9 +645,9 @@ frdp_display_authenticate (FrdpDisplay  *self,
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
   GMainContext       *context;
 
-  g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
-
   priv->awaiting_authentication = TRUE;
+
+  g_signal_emit (self, signals[RDP_NEEDS_AUTHENTICATION], 0);
 
   context = g_main_context_default ();
 
