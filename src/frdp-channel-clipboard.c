@@ -210,7 +210,9 @@ frdp_channel_clipboard_finalize (GObject *object)
   fuse_session_unmount (priv->fuse_session);
   fuse_session_exit (priv->fuse_session);
 
-  _gtk_clipboard_clear_func (priv->gtk_clipboard, self);
+  if (priv->remote_data_in_clipboard)
+    gtk_clipboard_clear (priv->gtk_clipboard);
+
   g_clear_pointer (&priv->fuse_directory, g_free);
 
   g_mutex_lock (&priv->lock_mutex);
