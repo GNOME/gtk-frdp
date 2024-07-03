@@ -660,10 +660,17 @@ frdp_post_connect (freerdp *freerdp_session)
 static void
 frdp_post_disconnect (freerdp *instance)
 {
-  rdpContext *context;
+  FrdpSession *self;
+  rdpContext  *context;
 
   if (!instance || !instance->context)
     return;
+
+  self = ((frdpContext *) instance->context)->self;
+
+  g_signal_handlers_disconnect_by_func (self->priv->display, G_CALLBACK (frdp_session_draw), self);
+  g_signal_handlers_disconnect_by_func (self->priv->display, G_CALLBACK (frdp_session_configure_event), self);
+  g_signal_handlers_disconnect_by_func (self->priv->display, G_CALLBACK (frdp_session_resize_supported_changed), self);
 
   context = instance->context;
   PubSub_UnsubscribeChannelConnected (context->pubSub,

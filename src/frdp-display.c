@@ -240,6 +240,11 @@ frdp_display_disconnected (GObject  *source_object,
                            gpointer  user_data)
 {
   FrdpDisplay *self = FRDP_DISPLAY (user_data);
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+
+  g_signal_handlers_disconnect_by_func (priv->session, G_CALLBACK (frdp_display_error), self);
+  g_signal_handlers_disconnect_by_func (priv->session, G_CALLBACK (frdp_display_disconnected), self);
+  g_signal_handlers_disconnect_by_func (priv->session, G_CALLBACK (frdp_display_auth_failure), self);
 
   g_signal_emit (self, signals[RDP_DISCONNECTED], 0);
 
