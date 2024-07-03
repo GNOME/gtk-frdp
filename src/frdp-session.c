@@ -718,14 +718,17 @@ update (gpointer user_data)
                                            handles, ARRAYSIZE(handles));
   if (usedHandles == 0) {
       g_warning ("Failed to get FreeRDP event handle");
+      priv->update_id = 0;
       return FALSE;
   }
 
   status = WaitForMultipleObjects (usedHandles, handles, FALSE, SELECT_TIMEOUT);
   if (status == WAIT_TIMEOUT)
     return TRUE;
-  if (status == WAIT_FAILED)
+  if (status == WAIT_FAILED) {
+    priv->update_id = 0;
     return FALSE;
+  }
 
   if (!freerdp_check_event_handles (priv->freerdp_session->context)) {
     if (freerdp_get_last_error(priv->freerdp_session->context) == FREERDP_ERROR_SUCCESS) {
@@ -737,6 +740,7 @@ update (gpointer user_data)
 
   if (freerdp_shall_disconnect (priv->freerdp_session)) {
       g_idle_add ((GSourceFunc) idle_close, self);
+      priv->update_id = 0;
 
       return FALSE;
   }
