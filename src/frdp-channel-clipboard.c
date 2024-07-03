@@ -222,6 +222,7 @@ frdp_channel_clipboard_finalize (GObject *object)
 
   g_mutex_unlock (&priv->lock_mutex);
 
+  g_thread_join (priv->fuse_session_thread);
   g_mutex_clear (&priv->fuse_mutex);
   g_mutex_clear (&priv->lock_mutex);
 
