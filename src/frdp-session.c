@@ -1095,19 +1095,19 @@ frdp_session_get_property (GObject    *object,
   switch (property_id)
     {
       case PROP_HOSTNAME:
-        g_value_set_string (value, settings->ServerHostname);
+        g_value_set_string (value, self->priv->hostname);
         break;
       case PROP_PORT:
-        g_value_set_uint (value, settings->ServerPort);
+        g_value_set_uint (value, self->priv->port);
         break;
       case PROP_USERNAME:
-        g_value_set_string (value, settings->Username);
+        g_value_set_string (value, self->priv->username);
         break;
       case PROP_PASSWORD:
-        g_value_set_string (value, settings->Password);
+        g_value_set_string (value, self->priv->password);
         break;
       case PROP_DOMAIN:
-        g_value_set_string (value, settings->Domain);
+        g_value_set_string (value, self->priv->domain);
         break;
       case PROP_DISPLAY:
         g_value_set_object (value, self->priv->display);
