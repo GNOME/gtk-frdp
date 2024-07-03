@@ -652,7 +652,7 @@ frdp_display_authenticate (FrdpDisplay  *self,
   context = g_main_context_default ();
 
   while (priv->awaiting_authentication)
-    g_main_context_iteration (context, FALSE);
+    g_main_context_iteration (context, TRUE);
 
   *username = *password = *domain = NULL;
   g_object_get (priv->session,
@@ -728,7 +728,7 @@ frdp_display_certificate_verify_ex (FrdpDisplay *display,
   context = g_main_context_default ();
 
   while (priv->awaiting_certificate_verification)
-    g_main_context_iteration (context, FALSE);
+    g_main_context_iteration (context, TRUE);
 
   return priv->certificate_verification_value;
 }
@@ -766,7 +766,7 @@ frdp_display_certificate_change_verify_ex (FrdpDisplay *display,
   context = g_main_context_default ();
 
   while (priv->awaiting_certificate_change_verification)
-    g_main_context_iteration (context, FALSE);
+    g_main_context_iteration (context, TRUE);
 
   return priv->certificate_change_verification_value;
 }
