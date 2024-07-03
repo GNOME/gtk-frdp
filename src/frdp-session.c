@@ -714,6 +714,13 @@ update (gpointer user_data)
 
   priv = self->priv;
 
+  if (freerdp_shall_disconnect (priv->freerdp_session)) {
+      priv->update_id = 0;
+      g_idle_add ((GSourceFunc) idle_close, self);
+
+      return FALSE;
+  }
+
   usedHandles = freerdp_get_event_handles (priv->freerdp_session->context,
                                            handles, ARRAYSIZE(handles));
   if (usedHandles == 0) {
@@ -736,13 +743,6 @@ update (gpointer user_data)
     }
 
     return TRUE;
-  }
-
-  if (freerdp_shall_disconnect (priv->freerdp_session)) {
-      g_idle_add ((GSourceFunc) idle_close, self);
-      priv->update_id = 0;
-
-      return FALSE;
   }
 
   return TRUE;
