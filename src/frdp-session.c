@@ -1108,7 +1108,7 @@ frdp_session_connect_thread (GTask        *task,
                            signals[RDP_AUTH_FAILURE], 0,
                            freerdp_get_last_error_string (error_code));
 
-            g_warning ("Failed to connect RPD host with error '%s'",
+            g_warning ("Failed to connect RDP host with error '%s'",
                        freerdp_get_last_error_string (error_code));
             break;
 
