@@ -94,6 +94,9 @@ struct _FrdpSessionPrivate
   FrdpChannelDisplayControl *display_control_channel;
   FrdpChannelClipboard      *clipboard_channel;
   gboolean                   monitor_layout_supported;
+
+  GQueue *area_draw_queue;  /* elem: GdkRectangle */
+  GMutex  area_draw_mutex;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpSession, frdp_session, G_TYPE_OBJECT)
@@ -122,6 +125,12 @@ enum
 };
 
 static guint signals[LAST_SIGNAL];
+
+static void queue_draw_area (FrdpSession *self,
+                             gint         x,
+                             gint         y,
+                             gint         width,
+                             gint         height);
 
 static void
 frdp_session_update_mouse_pointer (FrdpSession  *self)
@@ -576,6 +585,30 @@ frdp_begin_paint (rdpContext *context)
   return TRUE;
 }
 
+static void
+queue_draw_area (FrdpSession *self,
+                 gint x,
+                 gint y,
+                 gint width,
+                 gint height)
+{
+  FrdpSessionPrivate *priv = self->priv;
+  GdkRectangle       *rectangle;
+
+  rectangle = g_new (GdkRectangle, 1);
+  rectangle->x = x;
+  rectangle->y = y;
+  rectangle->width = width;
+  rectangle->height = height;
+
+  g_mutex_lock (&priv->area_draw_mutex);
+
+  if (priv->area_draw_queue != NULL)
+    g_queue_push_tail (priv->area_draw_queue, rectangle);
+
+  g_mutex_unlock (&priv->area_draw_mutex);
+}
+
 static gboolean
 frdp_end_paint (rdpContext *context)
 {
@@ -596,15 +629,15 @@ frdp_end_paint (rdpContext *context)
   priv = self->priv;
 
   if (priv->scaling) {
-      pos_x = self->priv->offset_x + x * priv->scale;
-      pos_y = self->priv->offset_y + y * priv->scale;
-      gtk_widget_queue_draw_area (priv->display,
-                                  floor (pos_x),
-                                  floor (pos_y),
-                                  ceil (pos_x + w * priv->scale) - floor (pos_x),
-                                  ceil (pos_y + h * priv->scale) - floor (pos_y));
+    pos_x = self->priv->offset_x + x * priv->scale;
+    pos_y = self->priv->offset_y + y * priv->scale;
+    queue_draw_area (self,
+                     floor (pos_x),
+                     floor (pos_y),
+                     ceil (pos_x + w * priv->scale) - floor (pos_x),
+                     ceil (pos_y + h * priv->scale) - floor (pos_y));
   } else {
-    gtk_widget_queue_draw_area (priv->display, x, y, w, h);
+    queue_draw_area (self, x, y, w, h);
   }
 
   return TRUE;
@@ -692,6 +725,11 @@ idle_close (gpointer user_data)
     self->priv->update_id = 0;
   }
 
+  g_mutex_lock (&self->priv->area_draw_mutex);
+  g_queue_clear_full (self->priv->area_draw_queue, g_free);
+  g_mutex_unlock (&self->priv->area_draw_mutex);
+  g_mutex_clear (&self->priv->area_draw_mutex);
+
   if (self->priv->freerdp_session != NULL) {
     freerdp_disconnect (self->priv->freerdp_session);
     g_clear_pointer (&self->priv->freerdp_session, freerdp_free);
@@ -711,8 +749,19 @@ update (gpointer user_data)
   DWORD usedHandles;
   FrdpSessionPrivate *priv;
   FrdpSession *self = (FrdpSession*) user_data;
+  GdkRectangle *rectangle;
 
   priv = self->priv;
+
+  g_mutex_lock (&priv->area_draw_mutex);
+
+  while (priv->area_draw_queue != NULL && !g_queue_is_empty (priv->area_draw_queue)) {
+      rectangle = g_queue_pop_head (priv->area_draw_queue);
+      gtk_widget_queue_draw_area (priv->display, rectangle->x, rectangle->y, rectangle->width, rectangle->height);
+      g_free (rectangle);
+  }
+
+  g_mutex_unlock (&priv->area_draw_mutex);
 
   if (freerdp_shall_disconnect (priv->freerdp_session)) {
       priv->update_id = 0;
@@ -1287,6 +1336,9 @@ static void
 frdp_session_init (FrdpSession *self)
 {
   self->priv = frdp_session_get_instance_private (self);
+
+  g_mutex_init (&self->priv->area_draw_mutex);
+  self->priv->area_draw_queue = g_queue_new ();
 
   self->priv->is_connected = FALSE;
 }
