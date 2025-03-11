@@ -981,7 +981,11 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
       if (layout != NULL) {
         for (i = 0; i < G_N_ELEMENTS (keyboard_layouts); i++) {
           if (g_strcmp0 (layout, keyboard_layouts[i].local_layout) == 0) {
+#ifdef HAVE_FREERDP_3_11_0
+            settings->KeyboardLayout = keyboard_layouts[i].freerdp_layout;
+#else
             settings->KeyboardLayout = freerdp_keyboard_init (keyboard_layouts[i].freerdp_layout);
+#endif
             keyboard_layout_set = TRUE;
             break;
           }
@@ -994,8 +998,10 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
     }
   }
 
+#ifndef HAVE_FREERDP_3_11_0
   if (!keyboard_layout_set)
     settings->KeyboardLayout = freerdp_keyboard_init (0);
+#endif
 }
 
 static void
@@ -1535,6 +1541,22 @@ frdp_session_send_key (FrdpSession  *self,
                        GdkEventKey  *key)
 {
   rdpInput *input = self->priv->freerdp_session->context->input;
+
+#ifdef HAVE_FREERDP_3_11_0
+  guint32   virtual_code, virtual_scan_code;
+
+  virtual_code = GetVirtualKeyCodeFromKeycode (key->hardware_keycode, WINPR_KEYCODE_TYPE_XKB);
+  virtual_scan_code = GetVirtualScanCodeFromVirtualKeyCode (virtual_code, WINPR_KBD_TYPE_IBM_ENHANCED);
+
+  if (virtual_scan_code != RDP_SCANCODE_UNKNOWN) {
+    freerdp_input_send_keyboard_event_ex (input, key->type == GDK_KEY_PRESS, FALSE, virtual_scan_code);
+  } else {
+    guint16 flags = key->type == GDK_KEY_PRESS ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
+
+    /* A failsafe mechanism. */
+    freerdp_input_send_unicode_keyboard_event (input, flags, gdk_keyval_to_unicode (key->keyval));
+  }
+#else
   DWORD scancode = 0;
   guint8 keycode;
   guint16 flags;
@@ -1551,6 +1573,7 @@ frdp_session_send_key (FrdpSession  *self,
 
   if (keycode)
     input->KeyboardEvent (input, flags, keycode);
+#endif
 }
 
 GdkPixbuf *

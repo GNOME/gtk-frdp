@@ -60,6 +60,9 @@ gtk_frdp_deps = [
 freerdp3_dep = dependency('freerdp3', required: false)
 if freerdp3_dep.found()
   add_project_arguments('-DHAVE_FREERDP3', language: 'c')
+  if freerdp3_dep.version().version_compare('>= 3.11.0')
+    add_project_arguments('-DHAVE_FREERDP_3_11_0', language: 'c')
+  endif
   gtk_frdp_deps += freerdp3_dep
   gtk_frdp_deps += dependency('winpr3', version: '>= 3.0.0')
   gtk_frdp_deps += dependency('freerdp-client3')
