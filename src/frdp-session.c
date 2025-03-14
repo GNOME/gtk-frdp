@@ -1548,14 +1548,8 @@ frdp_session_send_key (FrdpSession  *self,
   virtual_code = GetVirtualKeyCodeFromKeycode (key->hardware_keycode, WINPR_KEYCODE_TYPE_XKB);
   virtual_scan_code = GetVirtualScanCodeFromVirtualKeyCode (virtual_code, WINPR_KBD_TYPE_IBM_ENHANCED);
 
-  if (virtual_scan_code != RDP_SCANCODE_UNKNOWN) {
+  if (virtual_scan_code != RDP_SCANCODE_UNKNOWN)
     freerdp_input_send_keyboard_event_ex (input, key->type == GDK_KEY_PRESS, FALSE, virtual_scan_code);
-  } else {
-    guint16 flags = key->type == GDK_KEY_PRESS ? KBD_FLAGS_DOWN : KBD_FLAGS_RELEASE;
-
-    /* A failsafe mechanism. */
-    freerdp_input_send_unicode_keyboard_event (input, flags, gdk_keyval_to_unicode (key->keyval));
-  }
 #else
   DWORD scancode = 0;
   guint8 keycode;
