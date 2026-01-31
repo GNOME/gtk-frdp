@@ -1004,7 +1004,7 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
 #endif
 }
 
-static void
+static gboolean
 frdp_session_init_freerdp (FrdpSession *self)
 {
   CONST_QUALIFIER gchar *collections[] = { "disp" };
@@ -1015,6 +1015,10 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   /* Setup FreeRDP session */
   priv->freerdp_session = freerdp_new ();
+
+  if (priv->freerdp_session == NULL)
+    return FALSE;
+
   priv->freerdp_session->PreConnect = frdp_pre_connect;
   priv->freerdp_session->PostConnect = frdp_post_connect;
   priv->freerdp_session->PostDisconnect = frdp_post_disconnect;
@@ -1027,7 +1031,9 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   priv->freerdp_session->ContextSize = sizeof (frdpContext);
 
-  freerdp_context_new (priv->freerdp_session);
+  if (!freerdp_context_new (priv->freerdp_session))
+    return FALSE;
+
   ((frdpContext *) priv->freerdp_session->context)->self = self;
 
   settings = priv->freerdp_session->context->settings;
@@ -1074,6 +1080,8 @@ frdp_session_init_freerdp (FrdpSession *self)
   frdp_session_set_current_keyboard_layout (self);
 
   freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
+
+  return TRUE;
 }
 
 static void
@@ -1083,13 +1091,31 @@ frdp_session_connect_thread (GTask        *task,
                              GCancellable *cancellable)
 {
   FrdpSession *self = (FrdpSession*) source_object;
+  guint32      error_code;
 
-  frdp_session_init_freerdp (self);
+  if (!frdp_session_init_freerdp (self)) {
+    if (self->priv->freerdp_session != NULL &&
+        self->priv->freerdp_session->context != NULL) {
+      error_code = freerdp_get_last_error (self->priv->freerdp_session->context);
+      g_signal_emit (self,
+                     signals[RDP_ERROR], 0,
+                     freerdp_get_last_error_string (error_code));
+      g_warning ("Failed to initialize RDP with error '%s'",
+                 freerdp_get_last_error_string (error_code));
+    } else {
+      g_signal_emit (self,
+                     signals[RDP_ERROR], 0,
+                     "Failed to initialize RDP!");
+    }
+
+    g_idle_add ((GSourceFunc) idle_close, self);
+    g_task_return_boolean (task, FALSE);
+
+    return;
+  }
 
   self->priv->is_connected = freerdp_connect (self->priv->freerdp_session);
   if (!self->priv->is_connected) {
-    guint32 error_code;
-
     error_code = freerdp_get_last_error (self->priv->freerdp_session->context);
     switch (error_code) {
         case FREERDP_ERROR_AUTHENTICATION_FAILED:
