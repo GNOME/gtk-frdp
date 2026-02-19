@@ -1574,7 +1574,9 @@ frdp_session_send_key (FrdpSession  *self,
   virtual_code = GetVirtualKeyCodeFromKeycode (key->hardware_keycode, WINPR_KEYCODE_TYPE_XKB);
   virtual_scan_code = GetVirtualScanCodeFromVirtualKeyCode (virtual_code, WINPR_KBD_TYPE_IBM_ENHANCED);
 
-  if (virtual_scan_code != RDP_SCANCODE_UNKNOWN)
+  if (virtual_scan_code != RDP_SCANCODE_UNKNOWN &&
+      (frdp_display_is_keyboard_grabbed (FRDP_DISPLAY (self->priv->display)) ||
+       (virtual_scan_code != RDP_SCANCODE_LWIN && virtual_scan_code != RDP_SCANCODE_RWIN)))
     freerdp_input_send_keyboard_event_ex (input, key->type == GDK_KEY_PRESS, FALSE, virtual_scan_code);
 #else
   DWORD scancode = 0;
