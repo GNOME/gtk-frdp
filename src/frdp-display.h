@@ -85,6 +85,8 @@ void       frdp_display_authenticate_finish (FrdpDisplay *self,
                                              gchar       *password,
                                              gchar       *domain);
 
+gboolean   frdp_display_is_keyboard_grabbed (FrdpDisplay *self);
+
 GdkPixbuf *frdp_display_get_pixbuf (FrdpDisplay *display);
 
 G_END_DECLS

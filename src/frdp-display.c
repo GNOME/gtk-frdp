@@ -35,6 +35,8 @@ struct _FrdpDisplayPrivate
 
   guint        certificate_verification_value;
   guint        certificate_change_verification_value;
+
+  gboolean     keyboard_grabbed;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpDisplay, frdp_display, GTK_TYPE_DRAWING_AREA)
@@ -66,6 +68,8 @@ static guint signals[LAST_SIGNAL];
 
 static void frdp_display_set_allow_resize (FrdpDisplay *display,
                                            gboolean     allow_resize);
+static void frdp_display_keyboard_grab    (FrdpDisplay *display);
+static void frdp_display_keyboard_ungrab  (FrdpDisplay *display);
 
 static gboolean
 frdp_display_is_initialized (FrdpDisplay *self)
@@ -200,22 +204,28 @@ frdp_display_scroll_event (GtkWidget      *widget,
 }
 
 static gboolean
-frdp_enter_notify_event (GtkWidget	       *widget,
-                         GdkEventCrossing  *event)
+frdp_enter_notify_event (GtkWidget        *widget,
+                         GdkEventCrossing *event)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-  frdp_session_mouse_pointer(priv->session, TRUE);
+
+  frdp_session_mouse_pointer (priv->session, TRUE);
+  frdp_display_keyboard_grab (self);
+
   return TRUE;
 }
 
 static gboolean
-frdp_leave_notify_event (GtkWidget	       *widget,
+frdp_leave_notify_event (GtkWidget         *widget,
                          GdkEventCrossing  *event)
 {
   FrdpDisplay *self = FRDP_DISPLAY (widget);
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
-  frdp_session_mouse_pointer(priv->session, FALSE);
+
+  frdp_session_mouse_pointer (priv->session, FALSE);
+  frdp_display_keyboard_ungrab (self);
+
   return TRUE;
 }
 
@@ -835,4 +845,47 @@ frdp_display_get_pixbuf (FrdpDisplay *display)
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
 
   return frdp_session_get_pixbuf (priv->session);
+}
+
+static void
+frdp_display_keyboard_grab (FrdpDisplay *display)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+  GdkGrabStatus       status;
+
+  if (gtk_widget_get_realized (GTK_WIDGET (display))) {
+    status = gdk_seat_grab (gdk_display_get_default_seat (gtk_widget_get_display (GTK_WIDGET (display))),
+                            gtk_widget_get_window (GTK_WIDGET (display)),
+                            GDK_SEAT_CAPABILITY_KEYBOARD,
+                            TRUE,
+                            NULL,
+                            NULL,
+                            NULL,
+                            NULL);
+
+    if (status == GDK_GRAB_SUCCESS) {
+      priv->keyboard_grabbed = TRUE;
+    } else {
+      g_warning ("keyboard grab failed %d", status);
+
+      priv->keyboard_grabbed = FALSE;
+    }
+  }
+}
+
+static void
+frdp_display_keyboard_ungrab (FrdpDisplay *display)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+
+  gdk_seat_ungrab (gdk_display_get_default_seat (gtk_widget_get_display (GTK_WIDGET (display))));
+  priv->keyboard_grabbed = FALSE;
+}
+
+gboolean
+frdp_display_is_keyboard_grabbed (FrdpDisplay *self)
+{
+  FrdpDisplayPrivate *priv = frdp_display_get_instance_private (self);
+
+  return priv->keyboard_grabbed;
 }
