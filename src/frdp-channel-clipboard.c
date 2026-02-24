@@ -36,6 +36,12 @@
 
 typedef struct
 {
+  FrdpChannelClipboard *self;
+  volatile gint         finalized;
+} FrdpClipboardDuration;
+
+typedef struct
+{
   guchar   *data;
   guint32   length;
   gboolean  handled;
@@ -133,6 +139,8 @@ typedef struct
   gboolean                     awaiting_data_request; /* Format list has been send but data were not requested yet */
 
   guint                        remote_clip_data_id;   /* clipDataId for copying from remote side */
+
+  FrdpClipboardDuration       *duration;
 } FrdpChannelClipboardPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (FrdpChannelClipboard, frdp_channel_clipboard, FRDP_TYPE_CHANNEL)
@@ -202,6 +210,8 @@ frdp_channel_clipboard_finalize (GObject *object)
 {
   FrdpChannelClipboard        *self = (FrdpChannelClipboard *) object;
   FrdpChannelClipboardPrivate *priv = frdp_channel_clipboard_get_instance_private (self);
+
+  g_atomic_int_set (&priv->duration->finalized, 1);
 
   g_signal_handler_disconnect (priv->gtk_clipboard,
                                priv->clipboard_owner_changed_id);
@@ -682,6 +692,10 @@ frdp_channel_clipboard_init (FrdpChannelClipboard *self)
   } else {
     g_warning ("Could not initiate FUSE session\n");
   }
+
+  priv->duration = g_new0 (FrdpClipboardDuration, 1);
+  priv->duration->self = self;
+  g_atomic_int_set (&priv->duration->finalized, 0);
 }
 
 static void
@@ -1374,8 +1388,9 @@ clipboard_content_received (GtkClipboard     *clipboard,
                             GtkSelectionData *selection_data,
                             gpointer          user_data)
 {
-  FrdpChannelClipboard        *self = (FrdpChannelClipboard *) user_data;
-  FrdpChannelClipboardPrivate *priv = frdp_channel_clipboard_get_instance_private (self);
+  FrdpClipboardDuration       *duration = (FrdpClipboardDuration *) user_data;
+  FrdpChannelClipboard        *self;
+  FrdpChannelClipboardPrivate *priv;
   GdkPixbuf                   *pixbuf;
   GdkAtom                      data_type;
   guchar                      *data, *text;
@@ -1383,6 +1398,12 @@ clipboard_content_received (GtkClipboard     *clipboard,
   gsize                        text_length, buffer_size = 0;
   guint                        i;
   gint                         length;
+
+  if (g_atomic_int_get (&duration->finalized))
+    return;
+
+  self = (FrdpChannelClipboard *) duration->self;
+  priv = frdp_channel_clipboard_get_instance_private (self);
 
   length = gtk_selection_data_get_length (selection_data);
   data_type = gtk_selection_data_get_data_type (selection_data);
@@ -1507,32 +1528,32 @@ server_format_data_request (CliprdrClientContext              *context,
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("UTF8_STRING", FALSE),
                                       clipboard_content_received,
-                                      self);
+                                      priv->duration);
       break;
     case FRDP_CLIPBOARD_FORMAT_PNG:
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("image/png", FALSE),
                                       clipboard_content_received,
-                                      self);
+                                      priv->duration);
       break;
     case FRDP_CLIPBOARD_FORMAT_JPEG:
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("image/jpeg", FALSE),
                                       clipboard_content_received,
-                                      self);
+                                      priv->duration);
       break;
     case CF_DIB:
       gtk_clipboard_request_contents (priv->gtk_clipboard,
                                       gdk_atom_intern ("image/bmp", FALSE),
                                       clipboard_content_received,
-                                      self);
+                                      priv->duration);
       break;
     default:
       if (format == priv->fgdw_id) {
         gtk_clipboard_request_contents (priv->gtk_clipboard,
                                         gdk_atom_intern ("text/uri-list", FALSE),
                                         clipboard_content_received,
-                                        self);
+                                        priv->duration);
         break;
       } else {
         g_warning ("Requesting clipboard data of type %d not implemented.", format);
