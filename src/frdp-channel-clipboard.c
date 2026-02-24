@@ -774,7 +774,6 @@ send_client_format_list (FrdpChannelClipboard *self)
   }
 
   format_list.COMMON(msgType) = CB_FORMAT_LIST;
-  format_list.COMMON(msgFlags) = CB_RESPONSE_OK;
   format_list.numFormats = j;
   format_list.formats = formats;
 
