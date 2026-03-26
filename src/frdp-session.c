@@ -160,15 +160,16 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     cursor =  gdk_cursor_new_from_surface (display, surface, 0, 0);
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
-  } else if (!priv->show_cursor || !priv->cursor)
+  } else if (!priv->show_cursor || !priv->cursor) {
       /* No cursor set or none to show */
     cursor = gdk_cursor_new_from_name (display, "default");
-  else {
+  } else {
     rdpPointer *pointer = &priv->cursor->pointer;
+    int window_scale_factor = gdk_window_get_scale_factor (window);
     double x = priv->cursor->pointer.xPos * priv->scale;
     double y = priv->cursor->pointer.yPos * priv->scale;
-    double w = pointer->width * priv->scale;
-    double h = pointer->height * priv->scale;
+    double w = ceil (pointer->width * priv->scale) * window_scale_factor;
+    double h = ceil (pointer->height * priv->scale) * window_scale_factor;
     cairo_surface_t *surface;
     cairo_t *cairo;
 
@@ -180,12 +181,18 @@ frdp_session_update_mouse_pointer (FrdpSession  *self)
     surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
     cairo = cairo_create (surface);
 
-    cairo_scale(cairo, self->priv->scale, self->priv->scale);
+    cairo_scale (cairo,
+                 self->priv->scale * window_scale_factor,
+                 self->priv->scale * window_scale_factor);
     cairo_set_source_surface (cairo, priv->cursor->data, 0, 0);
     cairo_paint (cairo);
 
     cairo_fill (cairo);
-    cursor =  gdk_cursor_new_from_surface (display, surface, x, y);
+    /* Set device scale to prevent GDK from scaling again based on HiDPI */
+    cairo_surface_set_device_scale (surface,
+                                    window_scale_factor,
+                                    window_scale_factor);
+    cursor = gdk_cursor_new_from_surface (display, surface, x, y);
     cairo_surface_destroy (surface);
     cairo_destroy (cairo);
   }
