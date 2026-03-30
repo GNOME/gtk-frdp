@@ -425,12 +425,21 @@ frdp_session_configure_event (GtkWidget *widget,
   g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
   if (allow_resize) {
-    if ((settings->DesktopWidth != gtk_widget_get_allocated_width (scrolled) ||
-         settings->DesktopHeight != gtk_widget_get_allocated_height (scrolled)) &&
+    guint32 request_width = width;
+    guint32 request_height = height;
+
+    /* Round width to even number */
+    if (request_width % 2 == 1)
+      request_width--;
+
+    /* Only request resize if the rounded dimensions differ from current desktop size.
+     * This prevents infinite resize loops when the window has odd dimensions. */
+    if ((settings->DesktopWidth != request_width ||
+         settings->DesktopHeight != request_height) &&
         priv->display_control_channel != NULL) {
       frdp_channel_display_control_resize_display (priv->display_control_channel,
-                                                   width,
-                                                   height);
+                                                   request_width,
+                                                   request_height);
     }
   } else {
     if (priv->scaling) {
