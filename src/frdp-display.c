@@ -596,19 +596,23 @@ frdp_display_set_scaling (FrdpDisplay *display,
                           gboolean     scaling)
 {
   FrdpDisplayPrivate *priv = frdp_display_get_instance_private (display);
+  gboolean            scaling_old;
 
-  g_object_set (priv->session, "scaling", scaling, NULL);
+  g_object_get (priv->session, "scaling", &scaling_old, NULL);
+  if (scaling != scaling_old) {
+    g_object_set (priv->session, "scaling", scaling, NULL);
 
-  if (scaling) {
-    gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
+    if (scaling) {
+      gtk_widget_set_size_request (GTK_WIDGET (display), -1, -1);
 
-    gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);
-    gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+      gtk_widget_set_halign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+      gtk_widget_set_valign (GTK_WIDGET (display), GTK_ALIGN_FILL);
+    }
+
+    gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
+                                gtk_widget_get_allocated_width (GTK_WIDGET (display)),
+                                gtk_widget_get_allocated_height (GTK_WIDGET (display)));
   }
-
-  gtk_widget_queue_draw_area (GTK_WIDGET (display), 0, 0,
-                              gtk_widget_get_allocated_width (GTK_WIDGET (display)),
-                              gtk_widget_get_allocated_height (GTK_WIDGET (display)));
 }
 
 static void
