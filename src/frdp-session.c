@@ -48,7 +48,7 @@
 #include "frdp-channel-display-control.h"
 #include "frdp-channel-clipboard.h"
 
-#define SELECT_TIMEOUT 50
+#define SELECT_TIMEOUT 20
 #define FRDP_CONNECTION_THREAD_MAX_ERRORS 10
 
 #ifdef HAVE_FREERDP3
@@ -911,6 +911,9 @@ update (gpointer user_data)
   GdkRectangle *rectangle;
 
   priv = self->priv;
+
+  if (priv->display != NULL && !gtk_widget_get_mapped (priv->display))
+    return TRUE;
 
   g_mutex_lock (&priv->area_draw_mutex);
 
