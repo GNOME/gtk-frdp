@@ -324,7 +324,7 @@ frdp_pointer_set_position (rdpContext *context,
 static void
 frdp_register_pointer (rdpGraphics *graphics)
 {
-  rdpPointer pointer;
+  rdpPointer pointer = { 0 };
 
   pointer.size = sizeof (frdpPointer);
   pointer.New = frdp_pointer_new;
