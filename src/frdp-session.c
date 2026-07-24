@@ -386,8 +386,8 @@ frdp_desktop_resize (rdpContext *context)
   rdpGdi      *gdi = context->gdi;
 
   if (gdi_resize (gdi,
-                  context->settings->DesktopWidth,
-                  context->settings->DesktopHeight)) {
+                  freerdp_settings_get_uint32 (context->settings, FreeRDP_DesktopWidth),
+                  freerdp_settings_get_uint32 (context->settings, FreeRDP_DesktopHeight))) {
     create_cairo_surface (self);
     return TRUE;
   } else {
@@ -407,6 +407,7 @@ frdp_session_configure_event (GtkWidget *widget,
   rdpGdi *gdi;
   double width, height, widget_ratio, server_ratio;
   gboolean allow_resize;
+  guint32 desktop_width, desktop_height;
 
   if (priv->freerdp_session == NULL)
     return;
@@ -424,6 +425,8 @@ frdp_session_configure_event (GtkWidget *widget,
     return;
 
   settings = priv->freerdp_session->context->settings;
+  desktop_width = freerdp_settings_get_uint32 (settings, FreeRDP_DesktopWidth);
+  desktop_height = freerdp_settings_get_uint32 (settings, FreeRDP_DesktopHeight);
 
   g_object_get (G_OBJECT (widget), "allow-resize", &allow_resize, NULL);
 
@@ -437,8 +440,7 @@ frdp_session_configure_event (GtkWidget *widget,
 
     /* Only request resize if the rounded dimensions differ from current desktop size.
      * This prevents infinite resize loops when the window has odd dimensions. */
-    if ((settings->DesktopWidth != request_width ||
-         settings->DesktopHeight != request_height) &&
+    if ((desktop_width != request_width || desktop_height != request_height) &&
         priv->display_control_channel != NULL) {
       frdp_channel_display_control_resize_display (priv->display_control_channel,
                                                    request_width,
@@ -447,15 +449,15 @@ frdp_session_configure_event (GtkWidget *widget,
   } else {
     if (priv->scaling) {
         widget_ratio = height > 0 ? width / height : 1.0;
-        server_ratio = settings->DesktopHeight > 0 ? (double) settings->DesktopWidth / settings->DesktopHeight : 1.0;
+        server_ratio = desktop_height > 0 ? (double) desktop_width / desktop_height : 1.0;
 
         if (widget_ratio > server_ratio)
-          self->priv->scale = height / settings->DesktopHeight;
+          self->priv->scale = height / desktop_height;
         else
-          self->priv->scale = width / settings->DesktopWidth;
+          self->priv->scale = width / desktop_width;
 
-        self->priv->offset_x = (width - settings->DesktopWidth * self->priv->scale) / 2.0;
-        self->priv->offset_y = (height - settings->DesktopHeight * self->priv->scale) / 2.0;
+        self->priv->offset_x = (width - desktop_width * self->priv->scale) / 2.0;
+        self->priv->offset_y = (height - desktop_height * self->priv->scale) / 2.0;
     } else {
       gtk_widget_set_size_request (priv->display, gdi->width, gdi->height);
     }
@@ -691,31 +693,34 @@ frdp_pre_connect (freerdp *freerdp_session)
 {
   rdpSettings *settings = freerdp_session->context->settings;
   rdpContext *context = freerdp_session->context;
+  BYTE *OrderSupport = freerdp_settings_get_pointer_writable(settings, FreeRDP_OrderSupport);
 
-  settings->OrderSupport[NEG_DSTBLT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_PATBLT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_SCRBLT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_OPAQUE_RECT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_DRAWNINEGRID_INDEX] = FALSE;
-  settings->OrderSupport[NEG_MULTIDSTBLT_INDEX] = FALSE;
-  settings->OrderSupport[NEG_MULTIPATBLT_INDEX] = FALSE;
-  settings->OrderSupport[NEG_MULTISCRBLT_INDEX] = FALSE;
-  settings->OrderSupport[NEG_MULTIOPAQUERECT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_MULTI_DRAWNINEGRID_INDEX] = FALSE;
-  settings->OrderSupport[NEG_LINETO_INDEX] = TRUE;
-  settings->OrderSupport[NEG_POLYLINE_INDEX] = TRUE;
-  settings->OrderSupport[NEG_MEMBLT_INDEX] = TRUE;
-  settings->OrderSupport[NEG_MEM3BLT_INDEX] = FALSE;
-  settings->OrderSupport[NEG_MEMBLT_V2_INDEX] = TRUE;
-  settings->OrderSupport[NEG_MEM3BLT_V2_INDEX] = FALSE;
-  settings->OrderSupport[NEG_SAVEBITMAP_INDEX] = FALSE;
-  settings->OrderSupport[NEG_GLYPH_INDEX_INDEX] = TRUE;
-  settings->OrderSupport[NEG_FAST_INDEX_INDEX] = TRUE;
-  settings->OrderSupport[NEG_FAST_GLYPH_INDEX] = FALSE;
-  settings->OrderSupport[NEG_POLYGON_SC_INDEX] = FALSE;
-  settings->OrderSupport[NEG_POLYGON_CB_INDEX] = FALSE;
-  settings->OrderSupport[NEG_ELLIPSE_SC_INDEX] = FALSE;
-  settings->OrderSupport[NEG_ELLIPSE_CB_INDEX] = FALSE;
+  if (OrderSupport != NULL) {
+    OrderSupport[NEG_DSTBLT_INDEX] = TRUE;
+    OrderSupport[NEG_PATBLT_INDEX] = TRUE;
+    OrderSupport[NEG_SCRBLT_INDEX] = TRUE;
+    OrderSupport[NEG_OPAQUE_RECT_INDEX] = TRUE;
+    OrderSupport[NEG_DRAWNINEGRID_INDEX] = FALSE;
+    OrderSupport[NEG_MULTIDSTBLT_INDEX] = FALSE;
+    OrderSupport[NEG_MULTIPATBLT_INDEX] = FALSE;
+    OrderSupport[NEG_MULTISCRBLT_INDEX] = FALSE;
+    OrderSupport[NEG_MULTIOPAQUERECT_INDEX] = TRUE;
+    OrderSupport[NEG_MULTI_DRAWNINEGRID_INDEX] = FALSE;
+    OrderSupport[NEG_LINETO_INDEX] = TRUE;
+    OrderSupport[NEG_POLYLINE_INDEX] = TRUE;
+    OrderSupport[NEG_MEMBLT_INDEX] = TRUE;
+    OrderSupport[NEG_MEM3BLT_INDEX] = FALSE;
+    OrderSupport[NEG_MEMBLT_V2_INDEX] = TRUE;
+    OrderSupport[NEG_MEM3BLT_V2_INDEX] = FALSE;
+    OrderSupport[NEG_SAVEBITMAP_INDEX] = FALSE;
+    OrderSupport[NEG_GLYPH_INDEX_INDEX] = TRUE;
+    OrderSupport[NEG_FAST_INDEX_INDEX] = TRUE;
+    OrderSupport[NEG_FAST_GLYPH_INDEX] = FALSE;
+    OrderSupport[NEG_POLYGON_SC_INDEX] = FALSE;
+    OrderSupport[NEG_POLYGON_CB_INDEX] = FALSE;
+    OrderSupport[NEG_ELLIPSE_SC_INDEX] = FALSE;
+    OrderSupport[NEG_ELLIPSE_CB_INDEX] = FALSE;
+  }
 
   PubSub_SubscribeChannelConnected (context->pubSub,
                                     frdp_on_channel_connected_event_handler);
@@ -837,8 +842,8 @@ frdp_post_connect (freerdp *freerdp_session)
   freerdp_session->context->update->DesktopResize = frdp_desktop_resize;
 
   EventArgsInit(&e, "frdp");
-	e.width = settings->DesktopWidth;
-	e.height = settings->DesktopHeight;
+	e.width = freerdp_settings_get_uint32 (settings, FreeRDP_DesktopWidth);
+	e.height = freerdp_settings_get_uint32 (settings, FreeRDP_DesktopHeight);
 	PubSub_OnResizeWindow(context->pubSub, freerdp_session->context, &e);
 
   create_cairo_surface (self);
@@ -1144,7 +1149,7 @@ frdp_session_set_current_keyboard_layout (FrdpSession *self) {
         for (i = 0; i < G_N_ELEMENTS (keyboard_layouts); i++) {
           if (g_strcmp0 (layout, keyboard_layouts[i].local_layout) == 0) {
 #ifdef HAVE_FREERDP_3_11_0
-            settings->KeyboardLayout = keyboard_layouts[i].freerdp_layout;
+            freerdp_settings_set_uint32 (settings, FreeRDP_KeyboardLayout, keyboard_layouts[i].freerdp_layout);
 #else
             settings->KeyboardLayout = freerdp_keyboard_init (keyboard_layouts[i].freerdp_layout);
 #endif
@@ -1200,42 +1205,42 @@ frdp_session_init_freerdp (FrdpSession *self)
 
   settings = priv->freerdp_session->context->settings;
 
-  settings->ServerHostname = g_strdup (priv->hostname);
-  settings->ServerPort = priv->port;
-  settings->Username = g_strdup (priv->username);
-  settings->Password = g_strdup (priv->password);
-  settings->Domain = g_strdup (priv->domain);
+  freerdp_settings_set_string (settings, FreeRDP_ServerHostname, priv->hostname);
+  freerdp_settings_set_uint32 (settings, FreeRDP_ServerPort, priv->port);
+  freerdp_settings_set_string (settings, FreeRDP_Username, priv->username);
+  freerdp_settings_set_string (settings, FreeRDP_Password, priv->password);
+  freerdp_settings_set_string (settings, FreeRDP_Domain, priv->domain);
 
-  settings->AllowFontSmoothing = TRUE;
-  settings->AllowUnanouncedOrdersFromServer = TRUE;
+  freerdp_settings_set_bool (settings, FreeRDP_AllowFontSmoothing, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_AllowUnanouncedOrdersFromServer, TRUE);
 
   /* Security settings */
-  settings->RdpSecurity = TRUE;
-  settings->TlsSecurity = TRUE;
-  settings->NlaSecurity = TRUE;
-  settings->EncryptionMethods = ENCRYPTION_METHOD_40BIT | ENCRYPTION_METHOD_128BIT | ENCRYPTION_METHOD_FIPS;
-  settings->EncryptionLevel = ENCRYPTION_LEVEL_CLIENT_COMPATIBLE;
-  settings->UseRdpSecurityLayer = FALSE;
+  freerdp_settings_set_bool (settings, FreeRDP_RdpSecurity, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_TlsSecurity, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_NlaSecurity, TRUE);
+  freerdp_settings_set_uint32 (settings, FreeRDP_EncryptionMethods, ENCRYPTION_METHOD_40BIT | ENCRYPTION_METHOD_128BIT | ENCRYPTION_METHOD_FIPS);
+  freerdp_settings_set_uint32 (settings, FreeRDP_EncryptionLevel, ENCRYPTION_LEVEL_CLIENT_COMPATIBLE);
+  freerdp_settings_set_bool (settings, FreeRDP_UseRdpSecurityLayer, FALSE);
 
-  settings->NegotiateSecurityLayer = TRUE;
+  freerdp_settings_set_bool (settings, FreeRDP_NegotiateSecurityLayer, TRUE);
 
-  settings->DesktopResize = TRUE;
-  settings->DynamicResolutionUpdate = TRUE;
-  settings->SupportDisplayControl = TRUE;
-  settings->RemoteFxCodec = TRUE;
-  settings->ColorDepth = 32;
-  settings->RedirectClipboard = TRUE;
-  settings->SupportGraphicsPipeline = TRUE;
+  freerdp_settings_set_bool (settings, FreeRDP_DesktopResize, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_DynamicResolutionUpdate, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_SupportDisplayControl, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_RemoteFxCodec, TRUE);
+  freerdp_settings_set_uint32 (settings, FreeRDP_ColorDepth, 32);
+  freerdp_settings_set_bool (settings, FreeRDP_RedirectClipboard, TRUE);
+  freerdp_settings_set_bool (settings, FreeRDP_SupportGraphicsPipeline, TRUE);
 
   freerdp_client_add_dynamic_channel (settings, count, collections);
 
   build_options = g_ascii_strup (freerdp_get_build_config (), -1);
   if (g_strrstr (build_options, "WITH_GFX_H264=ON") != NULL) {
-    settings->GfxH264 = TRUE;
-    settings->GfxAVC444 = TRUE;
+    freerdp_settings_set_bool (settings, FreeRDP_GfxH264, TRUE);
+    freerdp_settings_set_bool (settings, FreeRDP_GfxAVC444, TRUE);
   } else {
-    settings->GfxH264 = FALSE;
-    settings->GfxAVC444 = FALSE;
+    freerdp_settings_set_bool (settings, FreeRDP_GfxH264, FALSE);
+    freerdp_settings_set_bool (settings, FreeRDP_GfxAVC444, FALSE);
   }
   g_free (build_options);
 
