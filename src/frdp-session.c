@@ -931,7 +931,7 @@ update (gpointer user_data)
 
   g_mutex_unlock (&priv->area_draw_mutex);
 
-  if (freerdp_shall_disconnect (priv->freerdp_session)) {
+  if (freerdp_shall_disconnect_context (priv->freerdp_session->context)) {
       priv->update_id = 0;
       g_idle_add ((GSourceFunc) idle_close, self);
 
