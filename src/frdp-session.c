@@ -584,10 +584,11 @@ frdp_changed_certificate_verify_ex (freerdp     *freerdp_session,
 }
 
 static gboolean
-frdp_authenticate (freerdp  *freerdp_session,
-                   gchar   **username,
-                   gchar   **password,
-                   gchar   **domain)
+frdp_authenticate_ex (freerdp          *freerdp_session,
+                      gchar           **username,
+                      gchar           **password,
+                      gchar           **domain,
+                      rdp_auth_reason   reason)
 {
   FrdpSession *self = ((frdpContext *) freerdp_session->context)->self;
 
@@ -1189,7 +1190,7 @@ frdp_session_init_freerdp (FrdpSession *self)
   priv->freerdp_session->PreConnect = frdp_pre_connect;
   priv->freerdp_session->PostConnect = frdp_post_connect;
   priv->freerdp_session->PostDisconnect = frdp_post_disconnect;
-  priv->freerdp_session->Authenticate = frdp_authenticate;
+  priv->freerdp_session->AuthenticateEx = frdp_authenticate_ex;
   priv->freerdp_session->VerifyCertificateEx = frdp_certificate_verify_ex;
   priv->freerdp_session->VerifyChangedCertificateEx = frdp_changed_certificate_verify_ex;
 #ifdef HAVE_FREERDP3
