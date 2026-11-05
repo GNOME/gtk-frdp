@@ -918,18 +918,21 @@ update (gpointer user_data)
 
   priv = self->priv;
 
-  if (priv->display != NULL && !gtk_widget_get_mapped (priv->display))
-    return TRUE;
+  if (priv->display != NULL && gtk_widget_get_mapped (priv->display)) {
+    g_mutex_lock (&priv->area_draw_mutex);
 
-  g_mutex_lock (&priv->area_draw_mutex);
-
-  while (priv->area_draw_queue != NULL && !g_queue_is_empty (priv->area_draw_queue)) {
+    while (priv->area_draw_queue != NULL && !g_queue_is_empty (priv->area_draw_queue)) {
       rectangle = g_queue_pop_head (priv->area_draw_queue);
       gtk_widget_queue_draw_area (priv->display, rectangle->x, rectangle->y, rectangle->width, rectangle->height);
       g_free (rectangle);
-  }
+    }
 
-  g_mutex_unlock (&priv->area_draw_mutex);
+    g_mutex_unlock (&priv->area_draw_mutex);
+  } else {
+    g_mutex_lock (&self->priv->area_draw_mutex);
+    g_queue_clear_full (self->priv->area_draw_queue, g_free);
+    g_mutex_unlock (&self->priv->area_draw_mutex);
+  }
 
   if (freerdp_shall_disconnect_context (priv->freerdp_session->context)) {
       priv->update_id = 0;
